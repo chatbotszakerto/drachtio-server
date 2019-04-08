@@ -172,7 +172,6 @@ namespace drachtio {
                     m_prometheusPort = pt.get<unsigned int>("drachtio.monitoring.prometheus.<xmlattr>.port") ;
                     m_prometheusAddress = pt.get<string>("drachtio.monitoring.prometheus") ;
                 } catch( boost::property_tree::ptree_bad_path& e ) {
-                    return ;
                 }
 
                 /* logging configuration  */

@@ -936,6 +936,14 @@ namespace drachtio {
 
         }
 
+        // monitoring
+        if (m_nPrometheusPort == 0) m_Config->getPrometheusAddress( m_strPrometheusAddress, m_nPrometheusPort ) ;
+        if (m_nPrometheusPort == 0) {
+            string hostport = m_strPrometheusAddress + ":" + boost::lexical_cast<std::string>(m_nPrometheusPort);
+            DR_LOG(log_notice) << "responding to Prometheus on " << hostport;
+            m_statsCollector.enablePrometheus(hostport.c_str());
+        }
+
         int rv = su_init() ;
         if( rv < 0 ) {
             DR_LOG(log_error) << "Error calling su_init: " << rv ;
