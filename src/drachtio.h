@@ -201,4 +201,26 @@ extern drachtio::DrachtioController* theOneAndOnlyController ;
 
 #define DR_LOG(level) BOOST_LOG_SEV(theOneAndOnlyController->getLogger(), level) 
 
+#define STATS_COUNTER_CREATE(name, desc) \
+{ \
+	if (theOneAndOnlyController->getStatsCollector().enabled()) { \
+		theOneAndOnlyController->getStatsCollector().counterCreate(name, desc); \
+	} \
+}
+
+#define STATS_COUNTER_INCREMENT(...) \
+{ \
+	if (theOneAndOnlyController->getStatsCollector().enabled()) { \
+		theOneAndOnlyController->getStatsCollector().counterIncrement(__VA_ARGS__) ;\
+	} \
+}
+
+#define STATS_COUNTER_INCREMENT_BY(...) \
+{ \
+	if (theOneAndOnlyController->getStatsCollector().enabled()) { \
+		theOneAndOnlyController->getStatsCollector().counterIncrement(__VA_ARGS__); \
+	} \
+}
+
+
 #endif

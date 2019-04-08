@@ -10,8 +10,13 @@ bin_PROGRAMS= drachtio timer ssltest parser uri_test test_https test_asio_curl
 
 ACLOCAL_AMFLAGS = -I m4
 
-drachtio_SOURCES= src/main.cpp src/controller.cpp src/drachtio-config.cpp src/client-controller.cpp src/client.cpp src/drachtio.cpp src/sip-dialog.cpp src/sip-dialog-controller.cpp src/sip-proxy-controller.cpp src/pending-request-controller.cpp src/timer-queue.cpp src/cdr.cpp src/timer-queue-manager.cpp src/sip-transports.cpp src/request-handler.cpp src/request-router.cpp
-drachtio_CPPFLAGS=-D_REENTRANT -DDRACHTIO_VERSION=\"$(MYVERSION)\" -Wno-error=deprecated-declarations -DBOOST_ALLOW_DEPRECATED_HEADERS
+drachtio_SOURCES= src/main.cpp src/controller.cpp src/drachtio-config.cpp \
+	src/client-controller.cpp src/client.cpp src/drachtio.cpp src/sip-dialog.cpp \
+	src/sip-dialog-controller.cpp src/sip-proxy-controller.cpp src/pending-request-controller.cpp \
+	src/timer-queue.cpp src/cdr.cpp src/timer-queue-manager.cpp src/sip-transports.cpp \
+	src/request-handler.cpp src/request-router.cpp src/stats-collector.cpp
+drachtio_CPPFLAGS=-D_REENTRANT -DDRACHTIO_VERSION=\"$(MYVERSION)\" -Wno-error=deprecated-declarations \
+	-DBOOST_ALLOW_DEPRECATED_HEADERS 
 drachtio_LDADD= ${srcdir}/deps/sofia-sip/libsofia-sip-ua/.libs/libsofia-sip-ua.a ${srcdir}/deps/jansson-2.10/src/.libs/libjansson.a -lcurl -lpthread -lssl -lcrypto -lz
 
 timer_SOURCES= src/test_timer.cpp src/timer-queue.cpp
@@ -62,7 +67,7 @@ drachtio_LDADD += -L/usr/local/opt/openssl/lib ${srcdir}/deps/boost_1_69_0/stage
 	${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/lib/libprometheus-cpp-pull.a  \
 	${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/lib/libprometheus-cpp-core.a  \
 	-lpthread -lssl -lcrypto -lz 
-drachtio_CPPFLAGS += -I/usr/local/opt/openssl/include
+drachtio_CPPFLAGS += -I/usr/local/opt/openssl/include -fvisibility=hidden
 test_https_LDADD += -L/usr/local/opt/openssl/lib ${srcdir}/deps/boost_1_69_0/stage/lib/libboost_system.a
 test_https_CPPFLAGS += -I/usr/local/opt/openssl/include
 make_BOOST_CMD = cd ${srcdir}/deps/boost_1_69_0 && ./bootstrap.sh --with-toolset=darwin --with-libraries=thread,system,log,filesystem && ./b2 stage && rm -f ./stage/lib/*.dylib

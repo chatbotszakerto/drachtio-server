@@ -29,6 +29,9 @@ THE SOFTWARE.
 #include <functional>
 #include <regex>
 
+#include <prometheus/exposer.h>
+#include <prometheus/registry.h>
+
 #include <boost/property_tree/xml_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/algorithm/string.hpp>
@@ -85,161 +88,161 @@ namespace drachtio {
 
 /* clone static functions, used to post a message into the main su event loop from the worker client controller thread */
 namespace {
-  void my_formatter(logging::record_view const& rec, logging::formatting_ostream& strm) {
-    typedef boost::log::formatter formatter;
-      formatter f = expr::stream << expr::format_date_time<boost::posix_time::ptime>(
-        "TimeStamp", "%Y-%m-%d %H:%M:%S.%f") << " " <<
-        expr::smessage ;
-    f(rec, strm);
-  }
-  int clone_init( su_root_t* root, drachtio::DrachtioController* pController ) {
-    return 0 ;
-  }
-  void clone_destroy( su_root_t* root, drachtio::DrachtioController* pController ) {
-    return ;
-  }
-  void watchdogTimerHandler(su_root_magic_t *p, su_timer_t *timer, su_timer_arg_t *arg) {
-    theOneAndOnlyController->processWatchdogTimer() ;
-  }
-}
-
-
-namespace {
+    void my_formatter(logging::record_view const& rec, logging::formatting_ostream& strm) {
+        typedef boost::log::formatter formatter;
+        formatter f = expr::stream << expr::format_date_time<boost::posix_time::ptime>(
+            "TimeStamp", "%Y-%m-%d %H:%M:%S.%f") << " " <<
+            expr::smessage ;
+        f(rec, strm);
+    }
+    int clone_init( su_root_t* root, drachtio::DrachtioController* pController ) {
+        return 0 ;
+    }
+    void clone_destroy( su_root_t* root, drachtio::DrachtioController* pController ) {
+        return ;
+    }
+    void watchdogTimerHandler(su_root_magic_t *p, su_timer_t *timer, su_timer_arg_t *arg) {
+        theOneAndOnlyController->processWatchdogTimer() ;
+    }
             
 	/* sofia logging is redirected to this function */
 	static void __sofiasip_logger_func(void *logarg, char const *fmt, va_list ap) {
         
-    static bool loggingSipMsg = false ;
-    static std::shared_ptr<drachtio::StackMsg> msg ;
+        static bool loggingSipMsg = false ;
+        static std::shared_ptr<drachtio::StackMsg> msg ;
 
-    char output[MAXLOGLEN+1] ;
-    vsnprintf( output, MAXLOGLEN, fmt, ap ) ;
-    va_end(ap) ;
+        char output[MAXLOGLEN+1] ;
+        vsnprintf( output, MAXLOGLEN, fmt, ap ) ;
+        va_end(ap) ;
 
-    if( loggingSipMsg ) {
-      loggingSipMsg = NULL == ::strstr( fmt, MSG_SEPARATOR) ;
-      msg->appendLine( output, !loggingSipMsg ) ;
+        if( loggingSipMsg ) {
+        loggingSipMsg = NULL == ::strstr( fmt, MSG_SEPARATOR) ;
+        msg->appendLine( output, !loggingSipMsg ) ;
 
-      if( !loggingSipMsg ) {
-        //DR_LOG(drachtio::log_debug) << "Completed logging sip message"  ;
+        if( !loggingSipMsg ) {
+            //DR_LOG(drachtio::log_debug) << "Completed logging sip message"  ;
 
-        DR_LOG( drachtio::log_info ) << msg->getFirstLine()  << msg->getSipMessage() <<  " " ;            
+            DR_LOG( drachtio::log_info ) << msg->getFirstLine()  << msg->getSipMessage() <<  " " ;            
 
-        msg->isIncoming() 
-          ? theOneAndOnlyController->setLastRecvStackMessage( msg ) 
-          : theOneAndOnlyController->setLastSentStackMessage( msg ) ;
-      }
+            msg->isIncoming() 
+            ? theOneAndOnlyController->setLastRecvStackMessage( msg ) 
+            : theOneAndOnlyController->setLastSentStackMessage( msg ) ;
+        }
+        }
+        else if( ::strstr( output, "recv ") == output || ::strstr( output, "send ") == output ) {
+        //DR_LOG(drachtio::log_debug) << "started logging sip message: " << output  ;
+        loggingSipMsg = true ;
+
+        char* szStartSeparator = strstr( output, "   " MSG_SEPARATOR ) ;
+        if( NULL != szStartSeparator ) *szStartSeparator = '\0' ;
+
+        msg = std::make_shared<drachtio::StackMsg>( output ) ;
+        }
+        else {
+        int len = strlen(output) ;
+        output[len-1] = '\0' ;
+        DR_LOG(drachtio::log_info) << output ;
+        }
+    } ;
+
+    int defaultLegCallback( nta_leg_magic_t* controller,
+                        nta_leg_t* leg,
+                        nta_incoming_t* irq,
+                        sip_t const *sip) {
+        
+        return controller->processRequestOutsideDialog( leg, irq, sip ) ;
     }
-    else if( ::strstr( output, "recv ") == output || ::strstr( output, "send ") == output ) {
-      //DR_LOG(drachtio::log_debug) << "started logging sip message: " << output  ;
-      loggingSipMsg = true ;
-
-      char* szStartSeparator = strstr( output, "   " MSG_SEPARATOR ) ;
-      if( NULL != szStartSeparator ) *szStartSeparator = '\0' ;
-
-      msg = std::make_shared<drachtio::StackMsg>( output ) ;
+    int legCallback( nta_leg_magic_t* controller,
+                        nta_leg_t* leg,
+                        nta_incoming_t* irq,
+                        sip_t const *sip) {
+        
+        return controller->processRequestInsideDialog( leg, irq, sip ) ;
     }
-    else {
-      int len = strlen(output) ;
-      output[len-1] = '\0' ;
-      DR_LOG(drachtio::log_info) << output ;
+    int stateless_callback(nta_agent_magic_t *controller,
+                    nta_agent_t *agent,
+                    msg_t *msg,
+                    sip_t *sip) {
+        return controller->processMessageStatelessly( msg, sip ) ;
     }
-	} ;
 
-  int defaultLegCallback( nta_leg_magic_t* controller,
-                       nta_leg_t* leg,
-                       nta_incoming_t* irq,
-                       sip_t const *sip) {
-    
-    return controller->processRequestOutsideDialog( leg, irq, sip ) ;
-  }
-  int legCallback( nta_leg_magic_t* controller,
-                       nta_leg_t* leg,
-                       nta_incoming_t* irq,
-                       sip_t const *sip) {
-    
-    return controller->processRequestInsideDialog( leg, irq, sip ) ;
-  }
-  int stateless_callback(nta_agent_magic_t *controller,
-                   nta_agent_t *agent,
-                   msg_t *msg,
-                   sip_t *sip) {
-    return controller->processMessageStatelessly( msg, sip ) ;
-  }
+    static std::unordered_map<unsigned int, std::string> responseReasons({
+        {100, "Trying"},
+        {180, "Ringing"},
+        {181, "Call is Being Forwarded"},
+        {182, "Queued"},
+        {183, "Session in Progress"},
+        {199, "Early Dialog Terminated"},
+        {200, "OK"},
+        {202, "Accepted"}, 
+        {204, "No Notification"}, 
+        {300, "Multiple Choices"}, 
+        {301, "Moved Permanently"}, 
+        {302, "Moved Temporarily"}, 
+        {305, "Use Proxy"}, 
+        {380, "Alternative Service"}, 
+        {400, "Bad Request"}, 
+        {401, "Unauthorized"}, 
+        {402, "Payment Required"}, 
+        {403, "Forbidden"}, 
+        {404, "Not Found"}, 
+        {405, "Method Not Allowed"}, 
+        {406, "Not Acceptable"}, 
+        {407, "Proxy Authentication Required"}, 
+        {408, "Request Timeout"}, 
+        {409, "Conflict"}, 
+        {410, "Gone"}, 
+        {411, "Length Required"}, 
+        {412, "Conditional Request Failed"}, 
+        {413, "Request Entity Too Large"}, 
+        {414, "Request-URI Too Long"}, 
+        {415, "Unsupported Media Type"}, 
+        {416, "Unsupported URI Scheme"}, 
+        {417, "Unknown Resource-Priority"}, 
+        {420, "Bad Extension"}, 
+        {421, "Extension Required"}, 
+        {422, "Session Interval Too Small"}, 
+        {423, "Interval Too Brief"}, 
+        {424, "Bad Location Information"}, 
+        {428, "Use Identity Header"}, 
+        {429, "Provide Referrer Identity"}, 
+        {430, "Flow Failed"}, 
+        {433, "Anonymity Disallowed"}, 
+        {436, "Bad Identity-Info"}, 
+        {437, "Unsupported Certificate"}, 
+        {438, "Invalid Identity Header"}, 
+        {439, "First Hop Lacks Outbound Support"}, 
+        {470, "Consent Needed"}, 
+        {480, "Temporarily Unavailable"}, 
+        {481, "Call Leg/Transaction Does Not Exist"}, 
+        {482, "Loop Detected"}, 
+        {483, "Too Many Hops"}, 
+        {484, "Address Incomplete"}, 
+        {485, "Ambiguous"}, 
+        {486, "Busy Here"}, 
+        {487, "Request Terminated"}, 
+        {488, "Not Acceptable Here"}, 
+        {489, "Bad Event"}, 
+        {491, "Request Pending"}, 
+        {493, "Undecipherable"}, 
+        {494, "Security Agreement Required"}, 
+        {500, "Server Internal Error"}, 
+        {501, "Not Implemented"}, 
+        {502, "Bad Gateway"}, 
+        {503, "Service Unavailable"}, 
+        {504, "Server Timeout"}, 
+        {505, "Version Not Supported"}, 
+        {513, "Message Too Large"}, 
+        {580, "Precondition Failure"}, 
+        {600, "Busy Everywhere"}, 
+        {603, "Decline"}, 
+        {604, "Does Not Exist Anywhere"}, 
+        {606, "Not Acceptable"}
+    });
 
-  static std::unordered_map<unsigned int, std::string> responseReasons({
-    {100, "Trying"},
-    {180, "Ringing"},
-    {181, "Call is Being Forwarded"},
-    {182, "Queued"},
-    {183, "Session in Progress"},
-    {199, "Early Dialog Terminated"},
-    {200, "OK"},
-    {202, "Accepted"}, 
-    {204, "No Notification"}, 
-    {300, "Multiple Choices"}, 
-    {301, "Moved Permanently"}, 
-    {302, "Moved Temporarily"}, 
-    {305, "Use Proxy"}, 
-    {380, "Alternative Service"}, 
-    {400, "Bad Request"}, 
-    {401, "Unauthorized"}, 
-    {402, "Payment Required"}, 
-    {403, "Forbidden"}, 
-    {404, "Not Found"}, 
-    {405, "Method Not Allowed"}, 
-    {406, "Not Acceptable"}, 
-    {407, "Proxy Authentication Required"}, 
-    {408, "Request Timeout"}, 
-    {409, "Conflict"}, 
-    {410, "Gone"}, 
-    {411, "Length Required"}, 
-    {412, "Conditional Request Failed"}, 
-    {413, "Request Entity Too Large"}, 
-    {414, "Request-URI Too Long"}, 
-    {415, "Unsupported Media Type"}, 
-    {416, "Unsupported URI Scheme"}, 
-    {417, "Unknown Resource-Priority"}, 
-    {420, "Bad Extension"}, 
-    {421, "Extension Required"}, 
-    {422, "Session Interval Too Small"}, 
-    {423, "Interval Too Brief"}, 
-    {424, "Bad Location Information"}, 
-    {428, "Use Identity Header"}, 
-    {429, "Provide Referrer Identity"}, 
-    {430, "Flow Failed"}, 
-    {433, "Anonymity Disallowed"}, 
-    {436, "Bad Identity-Info"}, 
-    {437, "Unsupported Certificate"}, 
-    {438, "Invalid Identity Header"}, 
-    {439, "First Hop Lacks Outbound Support"}, 
-    {470, "Consent Needed"}, 
-    {480, "Temporarily Unavailable"}, 
-    {481, "Call Leg/Transaction Does Not Exist"}, 
-    {482, "Loop Detected"}, 
-    {483, "Too Many Hops"}, 
-    {484, "Address Incomplete"}, 
-    {485, "Ambiguous"}, 
-    {486, "Busy Here"}, 
-    {487, "Request Terminated"}, 
-    {488, "Not Acceptable Here"}, 
-    {489, "Bad Event"}, 
-    {491, "Request Pending"}, 
-    {493, "Undecipherable"}, 
-    {494, "Security Agreement Required"}, 
-    {500, "Server Internal Error"}, 
-    {501, "Not Implemented"}, 
-    {502, "Bad Gateway"}, 
-    {503, "Service Unavailable"}, 
-    {504, "Server Timeout"}, 
-    {505, "Version Not Supported"}, 
-    {513, "Message Too Large"}, 
-    {580, "Precondition Failure"}, 
-    {600, "Busy Everywhere"}, 
-    {603, "Decline"}, 
-    {604, "Does Not Exist Anywhere"}, 
-    {606, "Not Acceptable"}
-  });
+    // metrics
+    const string STATS_BUILD_INFO = "drachtio_build_info";
+    const string STATS_COUNTER_SIP_REQUESTS = "drachtio_sip_requests_total";
 };
 
 namespace drachtio {
@@ -266,7 +269,8 @@ namespace drachtio {
     DrachtioController::DrachtioController( int argc, char* argv[] ) : m_bDaemonize(false), m_bLoggingInitialized(false),
         m_configFilename(DEFAULT_CONFIG_FILENAME), m_adminTcpPort(0), m_adminTlsPort(0), m_bNoConfig(false), 
         m_current_severity_threshold(log_none), m_nSofiaLoglevel(-1), m_bIsOutbound(false), m_bConsoleLogging(false),
-        m_nHomerPort(0), m_nHomerId(0), m_mtu(0), m_bAggressiveNatDetection(false) {
+        m_nHomerPort(0), m_nHomerId(0), m_mtu(0), m_bAggressiveNatDetection(false), 
+        m_nPrometheusPort(0), m_strPrometheusAddress("0.0.0.0") {
         
         if( !parseCmdArgs( argc, argv ) ) {
             usage() ;
@@ -389,6 +393,8 @@ namespace drachtio {
                 {"dh-param", required_argument, 0, 'G'},
                 {"tls-port",    required_argument, 0, 'H'},
                 {"aggressive-nat-detection", no_argument, 0, 'I'},
+                {"aggressive-nat-detection", no_argument, 0, 'I'},
+                {"prometheus-port", required_argument, 0, 'J'},
                 {"version",    no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
@@ -559,6 +565,20 @@ namespace drachtio {
                     break;
                 case 'I':
                     m_bAggressiveNatDetection = true;
+                    break;
+
+                case 'J':
+                    {
+                        vector<string>strs;
+                        boost::split(strs, optarg, boost::is_any_of(":"));
+                        if(strs.size() == 2) {
+                            m_strPrometheusAddress = strs[0];
+                            m_nPrometheusPort = boost::lexical_cast<uint32_t>(strs[1]);
+                        }
+                        else {
+                            m_nPrometheusPort = boost::lexical_cast<uint32_t>(optarg); 
+                        }
+                    }
                     break;
 
                 case 'v':
@@ -1034,7 +1054,10 @@ namespace drachtio {
             NTATAG_SIP_T1X64(t1x64),
             TAG_END()
         ) ;
-              
+    
+        // start prometheus agent, if enabled
+        prometheus::Exposer exposer{"127.0.0.1:8080"};
+
         /* sofia event loop */
         DR_LOG(log_notice) << "Starting sofia event loop in main thread: " <<  std::this_thread::get_id()  ;
 
@@ -1784,9 +1807,6 @@ namespace drachtio {
     selectInboundConnectionForTag(transactionId, val);
   }
 
-
-    // logging / stats 
-    
     void DrachtioController::printStats() {
        usize_t irq_hash = -1, orq_hash = -1, leg_hash = -1;
        usize_t irq_used = -1, orq_used = -1, leg_used = -1 ;
@@ -1898,6 +1918,14 @@ namespace drachtio {
         DR_LOG(log_debug) << "number allocated msg_t                                           " << sofia_msg_count()  ;
 #endif
     }
+
+    void initStats() {
+        STATS_COUNTER_CREATE(STATS_COUNTER_SIP_REQUESTS, "how many sip requests has this server processed?")
+        STATS_COUNTER_CREATE(STATS_BUILD_INFO, "What version of drachtio is running?")
+
+        STATS_COUNTER_INCREMENT(STATS_BUILD_INFO, {{"version", DRACHTIO_VERSION}})
+    }
+
 
 }
 
