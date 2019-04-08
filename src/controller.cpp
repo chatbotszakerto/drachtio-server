@@ -241,8 +241,15 @@ namespace {
     });
 
     // metrics
-    const string STATS_BUILD_INFO = "drachtio_build_info";
+    const string STATS_COUNTER_BUILD_INFO = "drachtio_build_info";
     const string STATS_COUNTER_SIP_REQUESTS = "drachtio_sip_requests_total";
+    const string STATS_GAUGE_START_TIME = "drachtio_time_started";
+    const string STATS_GAUGE_SOFIA_SERVER_HASH_SIZE = "drachtio_sofia_server_txn_hash_size";
+    const string STATS_GAUGE_SOFIA_CLIENT_HASH_SIZE = "drachtio_sofia_client_txn_hash_size";
+    const string STATS_GAUGE_SOFIA_DIALOG_HASH_SIZE = "drachtio_sofia_dialog_hash_size";
+    const string STATS_GAUGE_SOFIA_NUM_SERVER_TXNS = "drachtio_sofia_server_txns_total";
+    const string STATS_GAUGE_SOFIA_NUM_CLIENT_TXNS = "drachtio_sofia_client_txns_total";
+    const string STATS_GAUGE_SOFIA_NUM_DIALOGS = "drachtio_sofia_dialogs_total";
 };
 
 namespace drachtio {
@@ -938,11 +945,12 @@ namespace drachtio {
 
         // monitoring
         if (m_nPrometheusPort == 0) m_Config->getPrometheusAddress( m_strPrometheusAddress, m_nPrometheusPort ) ;
-        if (m_nPrometheusPort == 0) {
+        if (m_nPrometheusPort != 0) {
             string hostport = m_strPrometheusAddress + ":" + boost::lexical_cast<std::string>(m_nPrometheusPort);
             DR_LOG(log_notice) << "responding to Prometheus on " << hostport;
             m_statsCollector.enablePrometheus(hostport.c_str());
         }
+        initStats();
 
         int rv = su_init() ;
         if( rv < 0 ) {
@@ -1063,9 +1071,6 @@ namespace drachtio {
             TAG_END()
         ) ;
     
-        // start prometheus agent, if enabled
-        prometheus::Exposer exposer{"127.0.0.1:8080"};
-
         /* sofia event loop */
         DR_LOG(log_notice) << "Starting sofia event loop in main thread: " <<  std::this_thread::get_id()  ;
 
@@ -1927,11 +1932,18 @@ namespace drachtio {
 #endif
     }
 
-    void initStats() {
-        STATS_COUNTER_CREATE(STATS_COUNTER_SIP_REQUESTS, "how many sip requests has this server processed?")
-        STATS_COUNTER_CREATE(STATS_BUILD_INFO, "What version of drachtio is running?")
+    void DrachtioController::initStats() {
+        STATS_COUNTER_CREATE(STATS_COUNTER_SIP_REQUESTS, "total number of sip requests processed")
+        STATS_COUNTER_CREATE(STATS_COUNTER_BUILD_INFO, "drachtio version running")
 
-        STATS_COUNTER_INCREMENT(STATS_BUILD_INFO, {{"version", DRACHTIO_VERSION}})
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_CLIENT_HASH_SIZE, "size of sofia hash table for client transactions")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_SERVER_HASH_SIZE, "size of sofia hash table for server transactions")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_DIALOG_HASH_SIZE, "size of sofia hash table for dialogs")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_NUM_SERVER_TXNS, "number of sofia server-side transactions")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_NUM_CLIENT_TXNS, "number of sofia client-side transactions")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_NUM_DIALOGS, "number of sofia dialogs")
+
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_BUILD_INFO, {{"version", DRACHTIO_VERSION}})
     }
 
 

@@ -23,6 +23,8 @@ namespace drachtio {
     PromImpl() = delete;
     PromImpl(const char* szHostport) : m_exposer(szHostport) {
       m_registry = std::make_shared<Registry>();
+      m_exposer.RegisterCollectable(m_registry);
+
       DR_LOG(log_info) << "listening for prometheus scrape on " << szHostport;
     }
     ~PromImpl() {}
@@ -38,8 +40,10 @@ namespace drachtio {
     }
 
     void counterIncrement(const string& name, mapLabels_t& labels) {
+      DR_LOG(log_info) << "counterIncrement";
       mapCounter_t::const_iterator it = m_mapCounter.find(name) ;
       if (m_mapCounter.end() != it) {
+        DR_LOG(log_info) << "counterIncrement 2";
         it->second->Add(labels).Increment() ;
       }
     }

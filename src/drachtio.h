@@ -222,5 +222,53 @@ extern drachtio::DrachtioController* theOneAndOnlyController ;
 	} \
 }
 
+#define STATS_GAUGE_CREATE(name, desc) \
+{ \
+	if (theOneAndOnlyController->getStatsCollector().enabled()) { \
+		theOneAndOnlyController->getStatsCollector().gaugeCreate(name, desc); \
+	} \
+}
+
+#define STATS_GAUGE_INCREMENT(...) \
+{ \
+	if (theOneAndOnlyController->getStatsCollector().enabled()) { \
+		theOneAndOnlyController->getStatsCollector().gaugeIncrement(__VA_ARGS__) ;\
+	} \
+}
+
+#define STATS_GAUGE_INCREMENT_BY(...) \
+{ \
+	if (theOneAndOnlyController->getStatsCollector().enabled()) { \
+		theOneAndOnlyController->getStatsCollector().gaugeIncrement(__VA_ARGS__); \
+	} \
+}
+
+#define STATS_GAUGE_DECREMENT(...) \
+{ \
+	if (theOneAndOnlyController->getStatsCollector().enabled()) { \
+		theOneAndOnlyController->getStatsCollector().gaugeDecrement(__VA_ARGS__) ;\
+	} \
+}
+
+#define STATS_GAUGE_DECREMENT_BY(...) \
+{ \
+	if (theOneAndOnlyController->getStatsCollector().enabled()) { \
+		theOneAndOnlyController->getStatsCollector().gaugeDecrement(__VA_ARGS__); \
+	} \
+}
+
+#define STATS_GAUGE_SET(...) \
+{ \
+	if (theOneAndOnlyController->getStatsCollector().enabled()) { \
+		theOneAndOnlyController->getStatsCollector().gaugeSet(__VA_ARGS__); \
+	} \
+}
+
+#define STATS_GAUGE_SET_TO_CURRENT_TIME(...) \
+{ \
+	if (theOneAndOnlyController->getStatsCollector().enabled()) { \
+		theOneAndOnlyController->getStatsCollector().gaugeSetToCurrentTime(__VA_ARGS__); \
+	} \
+}
 
 #endif
