@@ -24,6 +24,7 @@ THE SOFTWARE.
 
 #include <string>
 #include <map>
+#include <vector>
 
 using std::string ;
 
