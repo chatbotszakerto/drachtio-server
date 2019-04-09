@@ -32,6 +32,7 @@ namespace drachtio {
   class StatsCollector {
   public:
     typedef const std::map<string, string> mapLabels_t;
+    typedef std::vector<double> BucketBoundaries ;
 
     enum Metric_t{
       COUNTER,
@@ -65,7 +66,8 @@ namespace drachtio {
     void gaugeSetToCurrentTime(const string& name, mapLabels_t labels = {});
 
     // histogram
-    //void histogramObserve(const string& name, const double val) ;
+    void histogramCreate(const string& name, const char* desc, const BucketBoundaries& buckets);
+    void histogramObserve(const string& name, double val, mapLabels_t labels = {}) ;
 
     // summary
     //void summaryObserve(const string& name, const double val) ;

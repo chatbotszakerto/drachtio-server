@@ -146,9 +146,10 @@ namespace drachtio {
 
     ///ServerTransaction
     ProxyCore::ServerTransaction::ServerTransaction(std::shared_ptr<ProxyCore> pCore, msg_t* msg) : 
-        m_pCore(pCore), m_msg(msg), m_canceled(false), m_sipStatus(0), m_rseq(0) {
+        m_pCore(pCore), m_msg(msg), m_canceled(false), m_sipStatus(0), m_rseq(0), m_bAlerting(false) {
 
         msg_ref_create(m_msg) ;
+        m_timeArrive = std::chrono::steady_clock::now();
     }
     ProxyCore::ServerTransaction::~ServerTransaction() {
         DR_LOG(log_debug) << "ServerTransaction::~ServerTransaction" ;
@@ -265,6 +266,31 @@ namespace drachtio {
         if( !bRetransmitFinal && sip->sip_cseq->cs_method == sip_method_invite && sip->sip_status->st_status >= 200 ) {
             writeCdr( msg, sip ) ;
         }
+
+        // stats
+        if (theOneAndOnlyController->getStatsCollector().enabled()) {
+            if (m_sipStatus >= 200) {
+                STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
+                    {"direction", "outbound"},
+                    {"method", sip->sip_cseq->cs_method_name},
+                    {"code", boost::lexical_cast<std::string>(sip->sip_status->st_status)}
+                })
+            }
+            if (sip->sip_cseq->cs_method == sip_method_invite) {
+                auto now = std::chrono::steady_clock::now();
+                std::chrono::duration<double> diff = now - this->getArrivalTime();
+                if (!this->hasAlerted() && m_sipStatus >= 180) {
+                    this->alerting();
+                    STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_PDD, diff.count(), {{"direction", "inbound"}})
+                }
+                if (m_sipStatus == 200) {
+                    STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_RESPONSE_TIME, diff.count(), {{"direction", "inbound"}})
+                }
+
+            }
+
+        }
+
         msg_destroy(msg) ;
         return true ;
     }
@@ -300,7 +326,7 @@ namespace drachtio {
         m_pCore(pCore), m_target(target), m_canceled(false), m_sipStatus(0),
         m_timerA(NULL), m_timerB(NULL), m_timerC(NULL), m_timerD(NULL), m_timerProvisional(NULL), 
         m_timerE(NULL), m_timerF(NULL), m_timerK(NULL),
-        m_msgFinal(NULL),
+        m_msgFinal(NULL), m_bAlerting(false),
         m_transmitCount(0), m_method(sip_method_unknown), m_state(not_started), m_pTQM(pTQM) {
 
         string random ;
@@ -373,6 +399,8 @@ namespace drachtio {
                         m_timerProvisional = m_pTQM->addTimer("timerProvisional", 
                             std::bind(&ProxyCore::timerProvisional, pCore, shared_from_this()), NULL, pCore->getProvisionalTimeout() ) ;
                     }
+                    m_timeArrive = std::chrono::steady_clock::now();
+
                 break ;
 
                 case proceeding:
@@ -491,6 +519,9 @@ namespace drachtio {
             DR_LOG(log_error) << "forwardPrack: error forwarding request " ;
             return false ;
         }
+
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", "PRACK"}})
+
         return true ;
     }
     bool ProxyCore::ClientTransaction::forwardRequest(msg_t* msg, const string& headers) {
@@ -580,9 +611,13 @@ namespace drachtio {
             return true ;
         }
 
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name}})
+
         if( 1 == m_transmitCount && this->isInviteTransaction() ) {
             Cdr::postCdr( std::make_shared<CdrAttempt>( msg, "application" ) );
         }
+
+        msg_destroy(msg) ;
         
         return true ;
     }
@@ -655,6 +690,13 @@ namespace drachtio {
                     removeTimer( m_timerC, "timerC" ) ;
                     m_timerC = m_pTQM->addTimer("timerC", std::bind(&ProxyCore::timerC, pCore, shared_from_this()), 
                         NULL, TIMER_C_MSECS ) ;
+
+                    if (theOneAndOnlyController->getStatsCollector().enabled() && !this->hasAlerted()) {
+                        this->alerting();
+                        auto now = std::chrono::steady_clock::now();
+                        std::chrono::duration<double> diff = now - this->getArrivalTime();
+                        STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_PDD, diff.count(), {{"direction", "outbound"}})
+                    }
                 }                  
             }
             else if( m_sipStatus >= 200 && m_sipStatus <= 299 ) {
@@ -664,6 +706,15 @@ namespace drachtio {
                 setState( this->isInviteTransaction() ? terminated : completed ) ;
                 pCore->notifyForwarded200OK( me ) ;         
 
+                if (theOneAndOnlyController->getStatsCollector().enabled() && this->isInviteTransaction() && 200 == m_sipStatus) {
+                    auto now = std::chrono::steady_clock::now();
+                    std::chrono::duration<double> diff = now - this->getArrivalTime();
+                    STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_RESPONSE_TIME, diff.count(), {{"direction", "outbound"}})
+
+                    if (!this->hasAlerted()) {
+                        STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_PDD, diff.count(), {{"direction", "outbound"}})
+                    }
+                }
             }
             else if( m_sipStatus >= 300 ) {
                 setState( completed ) ;
@@ -816,6 +867,8 @@ namespace drachtio {
             TAG_END() ) < 0 )
  
             goto err ;
+
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", "CANCEL"}})
 
         m_canceled = true ;
         return 0;
@@ -1247,10 +1300,20 @@ namespace drachtio {
         string callId = sip->sip_call_id->i_id ;
         DR_LOG(log_debug) << "SipProxyController::processResponse " << std::dec << sip->sip_status->st_status << " " << callId ;
 
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
+            {"direction", "inbound"},
+            {"method", sip->sip_cseq->cs_method_name},
+            {"code", boost::lexical_cast<std::string>(sip->sip_status->st_status)}
+        }) 
 
         // responses to PRACKs we forward downstream
         if( sip_method_prack == sip->sip_cseq->cs_method ) {
             DR_LOG(log_debug)<< "processResponse - forwarding response to PRACK downstream " << callId ;
+            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
+                {"direction", "outbound"},
+                {"method", sip->sip_cseq->cs_method_name},
+                {"code", boost::lexical_cast<std::string>(sip->sip_status->st_status)}
+            }) 
             nta_msg_tsend( nta, msg, NULL, TAG_END() ) ;  
             return true ;                      
         }
@@ -1261,6 +1324,11 @@ namespace drachtio {
         //search for a matching client transaction to handle the response
         if( !p->processResponse( msg, sip ) ) {
             DR_LOG(log_debug)<< "processResponse - forwarding upstream (not handled by client transactions)" << callId ;
+            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
+                {"direction", "outbound"},
+                {"method", sip->sip_cseq->cs_method_name},
+                {"code", boost::lexical_cast<std::string>(sip->sip_status->st_status)}
+            }) 
             nta_msg_tsend( nta, msg, NULL, TAG_END() ) ;  
             return true ;          
         }
@@ -1273,6 +1341,8 @@ namespace drachtio {
 
         DR_LOG(log_debug) << "SipProxyController::processRequestWithRouteHeader " << callId ;
 
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
+
         sip_route_remove( msg, sip) ;
 
         //generate cdrs on BYE
@@ -1284,7 +1354,7 @@ namespace drachtio {
         if( sip_method_prack == sip->sip_request->rq_method ) {
             std::shared_ptr<ProxyCore> p = getProxyByCallId( sip ) ;
             if( !p ) {
-               DR_LOG(log_error) << "SipProxyController::processRequestWithRouteHeader unknown call-id for PRACK " <<  
+                DR_LOG(log_error) << "SipProxyController::processRequestWithRouteHeader unknown call-id for PRACK " <<  
                     sip->sip_call_id->i_id ;
                 nta_msg_discard( nta, msg ) ;
                 return true;                
@@ -1332,6 +1402,7 @@ namespace drachtio {
             DR_LOG(log_error) << "SipProxyController::processRequestWithRouteHeader failed proxying request " << callId << ": error " << rc ; 
             return false ;
         }
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name}})
 
         if( sip_method_bye == sip->sip_request->rq_method ) {
             Cdr::postCdr( std::make_shared<CdrStop>( msg, "application", Cdr::normal_release ) );            
@@ -1343,6 +1414,8 @@ namespace drachtio {
     }
     bool SipProxyController::processRequestWithoutRouteHeader( msg_t* msg, sip_t* sip ) {
         string callId = sip->sip_call_id->i_id ;
+
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
 
         std::shared_ptr<ProxyCore> p = getProxy( sip ) ;
         if( !p ) {
@@ -1371,6 +1444,12 @@ namespace drachtio {
 
         if(  sip_method_cancel == sip->sip_request->rq_method ) {
             p->setCanceled(true) ;
+
+            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
+                {"direction", "outbound"},
+                {"method", sip->sip_request->rq_method_name},
+                {"code", "200"}
+            }) 
 
             nta_msg_treply( nta, msg, 200, NULL, TAG_END() ) ;  //200 OK to the CANCEL
             p->generateResponse( 487 ) ;   //487 to INVITE
@@ -1526,6 +1605,8 @@ namespace drachtio {
         DR_LOG(log_info) << "m_mapCallId2Proxy size:                                          " << m_mapCallId2Proxy.size()  ;
         DR_LOG(log_info) << "m_mapNonce2Challenge size:                                       " << m_mapNonce2Challenge.size()  ;
         m_pTQM->logQueueSizes() ;
+
+        STATS_GAUGE_SET(STATS_GAUGE_PROXY, m_mapCallId2Proxy.size())
     }
 
 

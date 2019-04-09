@@ -130,18 +130,18 @@ namespace {
         }
         }
         else if( ::strstr( output, "recv ") == output || ::strstr( output, "send ") == output ) {
-        //DR_LOG(drachtio::log_debug) << "started logging sip message: " << output  ;
-        loggingSipMsg = true ;
+            //DR_LOG(drachtio::log_debug) << "started logging sip message: " << output  ;
+            loggingSipMsg = true ;
 
-        char* szStartSeparator = strstr( output, "   " MSG_SEPARATOR ) ;
-        if( NULL != szStartSeparator ) *szStartSeparator = '\0' ;
+            char* szStartSeparator = strstr( output, "   " MSG_SEPARATOR ) ;
+            if( NULL != szStartSeparator ) *szStartSeparator = '\0' ;
 
-        msg = std::make_shared<drachtio::StackMsg>( output ) ;
+            msg = std::make_shared<drachtio::StackMsg>( output ) ;
         }
         else {
-        int len = strlen(output) ;
-        output[len-1] = '\0' ;
-        DR_LOG(drachtio::log_info) << output ;
+            int len = strlen(output) ;
+            output[len-1] = '\0' ;
+            DR_LOG(drachtio::log_info) << output ;
         }
     } ;
 
@@ -149,7 +149,7 @@ namespace {
                         nta_leg_t* leg,
                         nta_incoming_t* irq,
                         sip_t const *sip) {
-        
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
         return controller->processRequestOutsideDialog( leg, irq, sip ) ;
     }
     int legCallback( nta_leg_magic_t* controller,
@@ -157,12 +157,14 @@ namespace {
                         nta_incoming_t* irq,
                         sip_t const *sip) {
         
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
         return controller->processRequestInsideDialog( leg, irq, sip ) ;
     }
     int stateless_callback(nta_agent_magic_t *controller,
                     nta_agent_t *agent,
                     msg_t *msg,
                     sip_t *sip) {
+        if( sip->sip_request ) STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
         return controller->processMessageStatelessly( msg, sip ) ;
     }
 
@@ -240,16 +242,6 @@ namespace {
         {606, "Not Acceptable"}
     });
 
-    // metrics
-    const string STATS_COUNTER_BUILD_INFO = "drachtio_build_info";
-    const string STATS_COUNTER_SIP_REQUESTS = "drachtio_sip_requests_total";
-    const string STATS_GAUGE_START_TIME = "drachtio_time_started";
-    const string STATS_GAUGE_SOFIA_SERVER_HASH_SIZE = "drachtio_sofia_server_txn_hash_size";
-    const string STATS_GAUGE_SOFIA_CLIENT_HASH_SIZE = "drachtio_sofia_client_txn_hash_size";
-    const string STATS_GAUGE_SOFIA_DIALOG_HASH_SIZE = "drachtio_sofia_dialog_hash_size";
-    const string STATS_GAUGE_SOFIA_NUM_SERVER_TXNS = "drachtio_sofia_server_txns_total";
-    const string STATS_GAUGE_SOFIA_NUM_CLIENT_TXNS = "drachtio_sofia_client_txns_total";
-    const string STATS_GAUGE_SOFIA_NUM_DIALOGS = "drachtio_sofia_dialogs_total";
 };
 
 namespace drachtio {
@@ -1098,10 +1090,11 @@ namespace drachtio {
             " does not match an existing call leg, processed in thread " << std::this_thread::get_id()  ;
 
         if( sip->sip_request ) {
-
+            
             // sofia sanity check on message format
             if( sip_sanity_check(sip) < 0 ) {
                 DR_LOG(log_error) << "DrachtioController::processMessageStatelessly: invalid incoming request message; discarding call-id " << sip->sip_call_id->i_id ;
+                STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name},{"code", "400"}})
                 nta_msg_treply( m_nta, msg, 400, NULL, TAG_END() ) ;
                 return -1 ;
             }
@@ -1154,6 +1147,7 @@ namespace drachtio {
                     DR_LOG(log_notice) << "DrachtioController::processMessageStatelessly: detected potential spammer from " <<
                         nta_incoming_remote_host(irq) << ":" << nta_incoming_remote_port(irq)  << 
                         " due to header value: " << err.what()  ;
+                    STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name},{"code", "603"}})
                     nta_incoming_treply( irq, 603, "Decline", TAG_END() ) ;
                     nta_incoming_destroy(irq) ;   
 
@@ -1262,17 +1256,21 @@ namespace drachtio {
                                 m_pClientController->getIOService().post( std::bind(fn, client, p->getTransactionId(), encodedMessage, meta)) ;
                             }
 
+                            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name},{"code", "200"}})
                             nta_msg_treply( m_nta, msg, 200, NULL, TAG_END() ) ;  
                             p->cancel() ;
+                            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", "INVITE"},{"code", "487"}})
                             nta_msg_treply( m_nta, msg_dup(p->getMsg()), 487, NULL, TAG_END() ) ;
                         }
                         else {
+                            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name},{"code", "481"}})
                             nta_msg_treply( m_nta, msg, 481, NULL, TAG_END() ) ;                              
                         }
                     }
                     break ;
 
                     case sip_method_bye:
+                        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name},{"code", "481"}})
                         nta_msg_treply( m_nta, msg, 481, NULL, TAG_END() ) ;   
                         break;                           
 
@@ -1469,6 +1467,7 @@ namespace drachtio {
                DR_LOG(log_info) << "DrachtioController::processRequestInsideDialog - received INVITE out of order (still waiting ACK from prev transaction)" ;
                return this->processMessageStatelessly( nta_incoming_getrequest( irq ), (sip_t *) sip ) ;
             }
+
             return m_pDialogController->processRequestInsideDialog( leg, irq, sip ) ;
         }
         assert(false) ;
@@ -1894,13 +1893,30 @@ namespace drachtio {
        DR_LOG(log_debug) << "number of responses without matching request                     " << trless_response  ;
        DR_LOG(log_debug) << "number of successful responses missing INVITE client transaction " << trless_200  ;
        DR_LOG(log_debug) << "number of requests merged by UAS                                 " << merged_request  ;
-       DR_LOG(log_info) << "number of SIP requests sent by stack                             " << sent_request  ;
        DR_LOG(log_info) << "number of SIP responses sent by stack                            " << sent_response  ;
        DR_LOG(log_info) << "number of SIP requests retransmitted by stack                    " << retry_request  ;
        DR_LOG(log_info) << "number of SIP responses retransmitted by stack                   " << retry_response  ;
        DR_LOG(log_info) << "number of retransmitted SIP requests received by stack           " << recv_retry  ;
        DR_LOG(log_debug) << "number of SIP client transactions that has timeout               " << tout_request  ;
        DR_LOG(log_debug) << "number of SIP server transactions that has timeout               " << tout_response  ;
+
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_SERVER_HASH_SIZE, irq_hash)
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_CLIENT_HASH_SIZE, orq_hash)
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_DIALOG_HASH_SIZE, leg_hash)
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_NUM_SERVER_TXNS, irq_used)
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_NUM_CLIENT_TXNS, orq_used)
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_NUM_DIALOGS, leg_used)
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_MSG_RECV, recv_msg)
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_MSG_SENT, sent_msg)
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_REQ_RECV, recv_request)
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_REQ_SENT, sent_request)
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_BAD_MSGS, bad_message)
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_BAD_REQS, bad_request)
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_RETRANS_REQ, retry_request)
+       STATS_GAUGE_SET(STATS_GAUGE_SOFIA_RETRANS_RES, retry_response)
+
+       STATS_GAUGE_SET(STATS_GAUGE_REGISTERED_ENDPOINTS, m_mapUri2InvalidData.size());
+
     }
     void DrachtioController::processWatchdogTimer() {
         DR_LOG(log_debug) << "DrachtioController::processWatchdogTimer"  ;
@@ -1933,17 +1949,36 @@ namespace drachtio {
     }
 
     void DrachtioController::initStats() {
-        STATS_COUNTER_CREATE(STATS_COUNTER_SIP_REQUESTS, "total number of sip requests processed")
+        STATS_COUNTER_CREATE(STATS_COUNTER_SIP_REQUESTS, "count of sip requests")
+        STATS_COUNTER_CREATE(STATS_COUNTER_SIP_RESPONSES, "count of sip responses")
         STATS_COUNTER_CREATE(STATS_COUNTER_BUILD_INFO, "drachtio version running")
 
-        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_CLIENT_HASH_SIZE, "size of sofia hash table for client transactions")
-        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_SERVER_HASH_SIZE, "size of sofia hash table for server transactions")
-        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_DIALOG_HASH_SIZE, "size of sofia hash table for dialogs")
-        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_NUM_SERVER_TXNS, "number of sofia server-side transactions")
-        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_NUM_CLIENT_TXNS, "number of sofia client-side transactions")
-        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_NUM_DIALOGS, "number of sofia dialogs")
+        STATS_GAUGE_CREATE(STATS_GAUGE_START_TIME, "drachtio start time")
+        STATS_GAUGE_CREATE(STATS_GAUGE_STABLE_DIALOGS, "count of SIP dialogs in progress")
+        STATS_GAUGE_CREATE(STATS_GAUGE_PROXY, "count of proxied call setups in progress")
+        STATS_GAUGE_CREATE(STATS_GAUGE_REGISTERED_ENDPOINTS, "count of registered endpoints")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_CLIENT_HASH_SIZE, "current size of sofia hash table for client transactions")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_SERVER_HASH_SIZE, "current size of sofia hash table for server transactions")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_DIALOG_HASH_SIZE, "current size of sofia hash table for dialogs")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_NUM_SERVER_TXNS, "count of sofia server-side transactions")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_NUM_CLIENT_TXNS, "count of sofia client-side transactions")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_NUM_DIALOGS, "count of sofia dialogs")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_MSG_RECV, "count of sip messages received by sofia sip stack")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_MSG_SENT, "count of sip messages sent by sofia sip stack")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_REQ_RECV, "count of sip requests received by sofia sip stack")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_REQ_SENT, "count of sip requests sent by sofia sip stack")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_BAD_MSGS, "count of invalid sip messages received by sofia sip stack")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_BAD_REQS, "count of invalid sip requests received by sofia sip stack")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_RETRANS_REQ, "count of sip requests retransmitted by sofia sip stack")
+        STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_RETRANS_RES, "count of sip responses retransmitted by sofia sip stack")
+
+        STATS_HISTOGRAM_CREATE(STATS_HISTOGRAM_INVITE_RESPONSE_TIME, "call answer seconds", 
+            {1.0, 3.0, 6.0, 10.0, 15.0, 20.0, 30.0, 60.0})
+        STATS_HISTOGRAM_CREATE(STATS_HISTOGRAM_INVITE_PDD, "call post-dial delay seconds", 
+            {1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0})
 
         STATS_COUNTER_INCREMENT(STATS_COUNTER_BUILD_INFO, {{"version", DRACHTIO_VERSION}})
+        STATS_GAUGE_SET_TO_CURRENT_TIME(STATS_GAUGE_START_TIME)
     }
 
 

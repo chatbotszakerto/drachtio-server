@@ -11,14 +11,24 @@
 using namespace prometheus;
 
 namespace drachtio {
+  
+  //using BucketBoundaries = std::vector<double>;
+  //typedef std::vector<double> BucketBoundaries ;
 
   class StatsCollector::PromImpl {
   public:
+    using Quantiles = std::vector<detail::CKMSQuantiles::Quantile>;
+
+    class HistogramSpec_t {
+    public:
+      HistogramSpec_t(const BucketBoundaries& b, std::shared_ptr<Family<Histogram> > ptr) :
+        buckets(b), p(ptr) {}
+      BucketBoundaries buckets;
+      std::shared_ptr<Family<Histogram> > p;
+    }  ;
     typedef std::unordered_map<string, std::shared_ptr<Family<Counter> > > mapCounter_t;
     typedef std::unordered_map<string, std::shared_ptr<Family<Gauge> > > mapGauge_t;
-
-    using Quantiles = std::vector<detail::CKMSQuantiles::Quantile>;
-    using BucketBoundaries = std::vector<double>;
+    typedef std::unordered_map<string, HistogramSpec_t > mapHistogram_t;
 
     PromImpl() = delete;
     PromImpl(const char* szHostport) : m_exposer(szHostport) {
@@ -106,6 +116,25 @@ namespace drachtio {
       }
     }
 
+    void buildHistogram(const string& name, const char* desc, const BucketBoundaries& buckets) {
+      auto& m = BuildHistogram()
+        .Name(name)
+        .Help(desc)
+        .Register(*m_registry);
+
+      std::shared_ptr<Family<Histogram> > p(&m);
+      m_mapHistogram.insert(mapHistogram_t::value_type(name, HistogramSpec_t(buckets, p)));
+    }
+
+    void histogramObserve(const string& name, const double val, mapLabels_t& labels) {
+       mapHistogram_t::const_iterator it = m_mapHistogram.find(name) ;
+      if (m_mapHistogram.end() != it) {
+        const HistogramSpec_t& spec = it->second;
+        std::shared_ptr<Family<Histogram> > pFamily = spec.p;
+        pFamily->Add(labels, spec.buckets).Observe(val);
+      }
+    }
+
   
   private:
 
@@ -114,6 +143,7 @@ namespace drachtio {
 
     mapCounter_t  m_mapCounter;
     mapGauge_t  m_mapGauge;
+    mapHistogram_t  m_mapHistogram;
   };
 
   StatsCollector::StatsCollector() : m_pimpl(nullptr) {
@@ -162,4 +192,13 @@ namespace drachtio {
   void StatsCollector::gaugeSetToCurrentTime(const string& name, mapLabels_t labels) {
     if (nullptr != m_pimpl) m_pimpl->gaugeSetToCurrentTime(name, labels); 
   }
+
+  // histograms
+  void StatsCollector::histogramCreate(const string& name, const char* desc, const BucketBoundaries& buckets) {
+    if (nullptr != m_pimpl) m_pimpl->buildHistogram(name, desc, buckets);    
+  }
+  void StatsCollector::histogramObserve(const string& name, double val, mapLabels_t labels) {
+    if (nullptr != m_pimpl) m_pimpl->histogramObserve(name, val, labels); 
+  }
+
 }

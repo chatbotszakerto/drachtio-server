@@ -52,8 +52,8 @@ if LINUX
 drachtio_LDADD += ${srcdir}/deps/boost_1_69_0/stage/lib/libboost_thread.a \
 	${srcdir}/deps/boost_1_69_0/stage/lib/libboost_system.a ${srcdir}/deps/boost_1_69_0/stage/lib/libboost_log.a \
 	${srcdir}/deps/boost_1_69_0/stage/lib/libboost_filesystem.a \
-	${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/lib/libprometheus-cpp-core.a \
 	${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/lib/libprometheus-cpp-pull.a \
+	${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/lib/libprometheus-cpp-core.a \
 	-lpthread -lssl -lcrypto -lz -lrt
 timer_LDADD += -lrt
 parser_LDADD += -lrt
