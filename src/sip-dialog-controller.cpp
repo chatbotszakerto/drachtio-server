@@ -1897,7 +1897,6 @@ namespace drachtio {
 
             size_t nUas = 0, nUac = 0;
             {
-                std::lock_guard<std::mutex> lock(m_mutex) ;
                 mapLeg2Dialog::const_iterator it = m_mapLeg2Dialog.begin();
                 for (; it != m_mapLeg2Dialog.end(); ++it) {
                     const shared_ptr<SipDialog>& pDialog = it->second;
