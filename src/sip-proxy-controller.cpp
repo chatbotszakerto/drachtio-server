@@ -39,8 +39,9 @@ namespace drachtio {
 #include "cdr.hpp"
 #include "sip-transports.hpp"
 
-static nta_agent_t* nta = NULL ;
 static drachtio::SipProxyController* theProxyController = NULL ;
+
+#define NTA (theOneAndOnlyController->getAgent())
 
 namespace {
     void cloneProxy(su_root_magic_t* p, su_msg_r msg, void* arg ) {
@@ -250,7 +251,7 @@ namespace drachtio {
             }
         }
 */
-        int rc = nta_msg_tsend( nta, msg_ref_create(msg), NULL,
+        int rc = nta_msg_tsend( NTA, msg_ref_create(msg), NULL,
             TAG_IF( reliable, SIPTAG_RSEQ(sip->sip_rseq) ),
             //TAG_IF( bReplaceRR, SIPTAG_RECORD_ROUTE_STR(newRR.c_str()) ),
             TAG_END() ) ;
@@ -304,9 +305,9 @@ namespace drachtio {
         }        
     }
     bool ProxyCore::ServerTransaction::generateResponse( int status, const char *szReason ) {
-       msg_t* reply = nta_msg_create(nta, 0) ;
+       msg_t* reply = nta_msg_create(NTA, 0) ;
         msg_ref_create(reply) ;
-        nta_msg_mreply( nta, reply, sip_object(reply), status, szReason, 
+        nta_msg_mreply( NTA, reply, sip_object(reply), status, szReason, 
             msg_ref_create(m_msg), //because it will lose a ref in here
             TAG_END() ) ;
 
@@ -507,7 +508,7 @@ namespace drachtio {
             }
         }
  
-        int rc = nta_msg_tsend( nta, 
+        int rc = nta_msg_tsend( NTA, 
             msg, 
             NULL, 
             TAG_IF( pCore->shouldAddRecordRoute() && hasRoute, 
@@ -588,7 +589,7 @@ namespace drachtio {
 
         tagi_t* tags = makeTags( headers, transport ) ;
 
-        int rc = nta_msg_tsend( nta, 
+        int rc = nta_msg_tsend( NTA, 
             msg_ref_create(msg), 
             URL_STRING_MAKE(route.c_str()), 
             NTATAG_TPORT(p->getTport()),
@@ -656,7 +657,7 @@ namespace drachtio {
         if( terminated == m_state ) {
             DR_LOG(log_info) << "ClientTransaction::processResponse - Discarding late-arriving response because transaction is terminated " <<
                 sip->sip_status->st_status << " " << sip->sip_cseq->cs_method << " " << sip->sip_call_id->i_id ;
-            nta_msg_discard( nta, msg ) ;
+            nta_msg_discard( NTA, msg ) ;
             return true ;
         }
 
@@ -666,7 +667,7 @@ namespace drachtio {
                 sip->sip_status->st_status << " " << sip->sip_cseq->cs_method << " " << sip->sip_call_id->i_id ;
             setState (proceeding ); 
             cancelRequest( msg ) ;
-            nta_msg_discard( nta, msg ) ;
+            nta_msg_discard( NTA, msg ) ;
             return true ;
         }
 
@@ -676,7 +677,7 @@ namespace drachtio {
             //retransmission of final response?
             if( (completed == m_state || terminated == m_state) && sip->sip_status->st_status >= 200 ) {
                 ackResponse( msg ) ;
-                nta_msg_discard( nta, msg ) ;
+                nta_msg_discard( NTA, msg ) ;
                 return true ;               
             }
             m_sipStatus = sip->sip_status->st_status ;
@@ -727,7 +728,7 @@ namespace drachtio {
             //determine whether to forward this response upstream
             if( 100 == m_sipStatus ) {
                 DR_LOG(log_debug) << "ClientTransaction::processResponse - discarding 100 Trying since we are a stateful proxy" ;
-                nta_msg_discard( nta, msg ) ;
+                nta_msg_discard( NTA, msg ) ;
                 return true ;
             }
             if( m_sipStatus > 100 && m_sipStatus < 300 ) {
@@ -790,7 +791,7 @@ namespace drachtio {
         }
         else if( sip_method_cancel == sip->sip_cseq->cs_method ) {
             DR_LOG(log_debug) << "Received " << sip->sip_status->st_status << " response to CANCEL" ;
-            nta_msg_discard( nta, msg ); 
+            nta_msg_discard( NTA, msg ); 
             return true ;
         }
         else {
@@ -802,7 +803,7 @@ namespace drachtio {
             bool bOK = pCore->forwardResponse( msg, sip ) ;
         }  
         else {
-            nta_msg_discard( nta, msg ) ;
+            nta_msg_discard( NTA, msg ) ;
         }      
         return true ;
     }
@@ -834,7 +835,7 @@ namespace drachtio {
         }
 
         sip_t* sip = sip_object(msg) ;
-        msg_t *cmsg = nta_msg_create(nta, 0);
+        msg_t *cmsg = nta_msg_create(NTA, 0);
         sip_t *csip = sip_object(cmsg);
         url_string_t const *ruri;
 
@@ -862,7 +863,7 @@ namespace drachtio {
         else
             msg_header_insert(cmsg, (msg_pub_t *)csip, (msg_header_t *)rq);
 
-        if( nta_msg_tsend( nta, cmsg, NULL, 
+        if( nta_msg_tsend( NTA, cmsg, NULL, 
             NTATAG_BRANCH_KEY(m_branch.c_str()),
             TAG_END() ) < 0 )
  
@@ -972,7 +973,7 @@ namespace drachtio {
         pClient->clearTimerA() ;
         msg_t* msg = m_pServerTransaction->msgDup() ;
         pClient->retransmitRequest(msg, m_headers) ;
-        msg_destroy(msg) ;
+        //msg_destroy(msg) ;
     }
     //max retransmission timer
     void ProxyCore::timerB(std::shared_ptr<ClientTransaction> pClient) {
@@ -1014,7 +1015,7 @@ namespace drachtio {
         pClient->clearTimerE() ;
         msg_t* msg = m_pServerTransaction->msgDup() ;
         pClient->retransmitRequest(msg, m_headers) ;
-        msg_destroy(msg) ;
+        //msg_destroy(msg) ;
     }
     //non-INVITE transaction timeout timer
     void ProxyCore::timerF(std::shared_ptr<ClientTransaction> pClient) {
@@ -1059,7 +1060,7 @@ namespace drachtio {
                 DR_LOG(log_debug) << "launching client " << idx ;
                 msg_t* msg = m_pServerTransaction->msgDup();
                 bool sent = pClient->forwardRequest(msg, m_headers) ;
-                msg_destroy( msg ) ;
+                //msg_destroy( msg ) ;
                 if( sent ) count++ ;
                 if( sent && ProxyCore::serial == getLaunchType() ) {
                     break ;
@@ -1183,7 +1184,6 @@ namespace drachtio {
         m_agent(pController->getAgent()), m_timerQueue(pController->getRoot(), "challenges")   {
 
             assert(m_agent) ;
-            nta = m_agent ;
             theProxyController = this ;
             m_pTQM = std::make_shared<SipTimerQueueManager>( pController->getRoot() ) ;
     }
@@ -1250,9 +1250,9 @@ namespace drachtio {
                 m_pController->getClientController()->route_api_response( pData->getClientMsgId(), "NOK", 
                     "Rejected with 483 Too Many Hops due to Max-Forwards value of 0" ) ;
 
-                msg_t* reply = nta_msg_create(nta, 0) ;
+                msg_t* reply = nta_msg_create(NTA, 0) ;
                 msg_ref_create(reply) ;
-                nta_msg_mreply( nta, reply, sip_object(reply), SIP_483_TOO_MANY_HOPS, 
+                nta_msg_mreply( NTA, reply, sip_object(reply), SIP_483_TOO_MANY_HOPS, 
                     msg_ref_create(msg), //because it will lose a ref in here
                     TAG_END() ) ;
 
@@ -1275,9 +1275,9 @@ namespace drachtio {
                 m_pController->getClientController()->route_api_response( pData->getClientMsgId(), "NOK", "error proxying request to " ) ;
                 DR_LOG(log_error) << "Error proxying request; please check that this is a valid SIP Request-URI and retry" ;
 
-                msg_t* reply = nta_msg_create(nta, 0) ;
+                msg_t* reply = nta_msg_create(NTA, 0) ;
                 msg_ref_create(reply) ;
-                nta_msg_mreply( nta, reply, sip_object(reply), 500, NULL, 
+                nta_msg_mreply( NTA, reply, sip_object(reply), 500, NULL, 
                     msg_ref_create(msg), //because it will lose a ref in here
                     TAG_END() ) ;
 
@@ -1314,7 +1314,7 @@ namespace drachtio {
                 {"method", sip->sip_cseq->cs_method_name},
                 {"code", boost::lexical_cast<std::string>(sip->sip_status->st_status)}
             }) 
-            nta_msg_tsend( nta, msg, NULL, TAG_END() ) ;  
+            nta_msg_tsend( NTA, msg, NULL, TAG_END() ) ;  
             return true ;                      
         }
         std::shared_ptr<ProxyCore> p = getProxy( sip ) ;
@@ -1329,7 +1329,7 @@ namespace drachtio {
                 {"method", sip->sip_cseq->cs_method_name},
                 {"code", boost::lexical_cast<std::string>(sip->sip_status->st_status)}
             }) 
-            nta_msg_tsend( nta, msg, NULL, TAG_END() ) ;  
+            nta_msg_tsend( NTA, msg, NULL, TAG_END() ) ;  
             return true ;          
         }
         DR_LOG(log_debug) << "SipProxyController::processResponse exiting " ;
@@ -1356,7 +1356,7 @@ namespace drachtio {
             if( !p ) {
                 DR_LOG(log_error) << "SipProxyController::processRequestWithRouteHeader unknown call-id for PRACK " <<  
                     sip->sip_call_id->i_id ;
-                nta_msg_discard( nta, msg ) ;
+                nta_msg_discard( NTA, msg ) ;
                 return true;                
             }
             p->forwardPrack( msg, sip ) ;
@@ -1393,7 +1393,7 @@ namespace drachtio {
             DR_LOG(log_debug) << "SipProxyController::processRequestWithRouteHeader forcing tport to reach route " << route ;
         }
 
-        int rc = nta_msg_tsend( nta, msg_ref_create(msg), NULL,
+        int rc = nta_msg_tsend( NTA, msg_ref_create(msg), NULL,
             TAG_IF(forceTport, NTATAG_TPORT(tp)),
             TAG_END() ) ;
 
@@ -1420,7 +1420,7 @@ namespace drachtio {
         std::shared_ptr<ProxyCore> p = getProxy( sip ) ;
         if( !p ) {
             DR_LOG(log_error) << "SipProxyController::processRequestWithoutRouteHeader unknown call-id for " <<  sip->sip_request->rq_method_name << " " << callId;
-            nta_msg_discard( nta, msg ) ;
+            nta_msg_discard( NTA, msg ) ;
             return false ;
         }
 
@@ -1429,7 +1429,7 @@ namespace drachtio {
             //1. We may get ACKs for success if we Record-Route'd...(except we'd be terminated immediately after sending 200OK)
             //2. What about PRACK ? (PRACK will either have route header or will not come through us)
             DR_LOG(log_debug) << "SipProxyController::processRequestWithoutRouteHeader discarding ACK for non-success response " <<  callId;
-            nta_msg_discard( nta, msg ) ;
+            nta_msg_discard( NTA, msg ) ;
             return true ;
         }
 
@@ -1438,7 +1438,7 @@ namespace drachtio {
         if( bRetransmission ) {
             //TODO: augment ServerTransaction to retain last response sent and resend in this case (or 100 Trying if INVITE and no responses sent yet)
             DR_LOG(log_info) << "Discarding retransmitted request since we are a stateful proxy " << sip->sip_request->rq_method_name << " " << sip->sip_call_id->i_id ;
-            nta_msg_discard( nta, msg ) ;
+            nta_msg_discard( NTA, msg ) ;
             return false ;
         }
 
@@ -1451,7 +1451,7 @@ namespace drachtio {
                 {"code", "200"}
             }) 
 
-            nta_msg_treply( nta, msg, 200, NULL, TAG_END() ) ;  //200 OK to the CANCEL
+            nta_msg_treply( NTA, msg, 200, NULL, TAG_END() ) ;  //200 OK to the CANCEL
             p->generateResponse( 487 ) ;   //487 to INVITE
 
             p->cancelOutstandingRequests() ;

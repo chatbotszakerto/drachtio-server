@@ -20,7 +20,7 @@ const execCmd = (cmd, opts) => {
 
 test('requested protocol not available', (t) => {
   let uac;
-  return start('./drachtio.conf4.xml', ['--contact', 'sip:127.0.0.1;transport=udp'])
+  return start('./drachtio.conf4.xml')
     .then(() => {
       uac = new Uac();
       return uac.connect();

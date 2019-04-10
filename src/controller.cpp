@@ -164,7 +164,7 @@ namespace {
                     nta_agent_t *agent,
                     msg_t *msg,
                     sip_t *sip) {
-        if( sip->sip_request ) STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
+        if( sip && sip->sip_request ) STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
         return controller->processMessageStatelessly( msg, sip ) ;
     }
 

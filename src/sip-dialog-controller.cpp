@@ -56,12 +56,12 @@ namespace {
         pController->getDialogController()->doSendCancelRequest( d ) ;
     }
     int uacLegCallback( nta_leg_magic_t* p, nta_leg_t* leg, nta_incoming_t* irq, sip_t const *sip) {
-        if( sip->sip_request ) STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
+        if( sip && sip->sip_request ) STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
         drachtio::DrachtioController* pController = reinterpret_cast<drachtio::DrachtioController*>( p ) ;
         return pController->getDialogController()->processRequestInsideDialog( leg, irq, sip) ;
     }
     int uasCancelOrAck( nta_incoming_magic_t* p, nta_incoming_t* irq, sip_t const *sip ) {
-        if( sip->sip_request ) STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
+        if( sip && sip->sip_request ) STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
         drachtio::DrachtioController* pController = reinterpret_cast<drachtio::DrachtioController*>( p ) ;
         return pController->getDialogController()->processCancelOrAck( p, irq, sip) ;
     }
