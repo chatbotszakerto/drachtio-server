@@ -58,7 +58,7 @@ drachtio_LDADD += ${srcdir}/deps/boost_1_69_0/stage/lib/libboost_thread.a \
 timer_LDADD += -lrt
 parser_LDADD += -lrt
 test_https_LDADD += -lrt -lpthread ${srcdir}/deps/boost_1_69_0/stage/lib/libboost_system.a
-make_BOOST_CMD = cd ${srcdir}/deps/boost_1_69_0 && ./bootstrap.sh --with-libraries=thread,system,log,filesystem && ./b2 stage
+make_BOOST_CMD = cd ${srcdir}/deps/boost_1_69_0 && ./bootstrap.sh --with-libraries=thread,system,log,filesystem && ./b2 link=static variant=release stage
 endif
 if OSX
 drachtio_LDADD += -L/usr/local/opt/openssl/lib ${srcdir}/deps/boost_1_69_0/stage/lib/libboost_thread.a \
@@ -70,7 +70,7 @@ drachtio_LDADD += -L/usr/local/opt/openssl/lib ${srcdir}/deps/boost_1_69_0/stage
 drachtio_CPPFLAGS += -I/usr/local/opt/openssl/include -fvisibility=hidden
 test_https_LDADD += -L/usr/local/opt/openssl/lib ${srcdir}/deps/boost_1_69_0/stage/lib/libboost_system.a
 test_https_CPPFLAGS += -I/usr/local/opt/openssl/include
-make_BOOST_CMD = cd ${srcdir}/deps/boost_1_69_0 && ./bootstrap.sh --with-toolset=darwin --with-libraries=thread,system,log,filesystem && ./b2 stage && rm -f ./stage/lib/*.dylib
+make_BOOST_CMD = cd ${srcdir}/deps/boost_1_69_0 && ./bootstrap.sh --with-toolset=darwin --with-libraries=thread,system,log,filesystem && ./b2 cxxflags=-std=c++14 link=static variant=release stage && rm -f ./stage/lib/*.dylib
 endif
 
 BUILT_SOURCES=${srcdir}/deps/boost_1_69_0/stage/lib/libboost_thread.a ${srcdir}/deps/sofia-sip/libsofia-sip-ua/.libs/libsofia-sip-ua.a \
