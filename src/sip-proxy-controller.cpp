@@ -578,6 +578,15 @@ namespace drachtio {
 
         string record_route, transport;
         std::shared_ptr<SipTransport> p = SipTransport::findAppropriateTransport(m_target.c_str());
+
+        // try with tcp if the first lookup failed, and there is no explicit transport param in the uri
+        if (!p && string::npos == m_target.find("transport=")) p = SipTransport::findAppropriateTransport(m_target.c_str(), "tcp");
+
+        // if we still don't have an appropriate transfer, return failure
+        if (!p) {
+            DR_LOG(log_debug) << "ProxyCore::ClientTransaction::forwardRequest - no transports found, returning failure: " << route ;            
+            return false;
+        }
         assert(p) ;
         p->getDescription(transport);
 
@@ -1377,20 +1386,21 @@ namespace drachtio {
         }
         
         if (!tp) {
-            string route ;
+            char buffer[256];
+            char szTransport[4];
             if (sip->sip_route && sip->sip_route->r_url->url_params && url_param(sip->sip_route->r_url->url_params, "lr", NULL, 0)) {
-                route = sip->sip_route->r_url->url_host;
+                url_e( buffer, 255, sip->sip_route->r_url ) ;
             }
             else {
-                route = sip->sip_request->rq_url->url_host;
+                url_e( buffer, 255, sip->sip_request->rq_url ) ;
             }
 
-            std::shared_ptr<SipTransport> p = SipTransport::findAppropriateTransport(route.c_str());
+            std::shared_ptr<SipTransport> p = SipTransport::findAppropriateTransport(buffer);
             assert(p) ;
 
             tp = p->getTport();
             forceTport = true ;
-            DR_LOG(log_debug) << "SipProxyController::processRequestWithRouteHeader forcing tport to reach route " << route ;
+            DR_LOG(log_debug) << "SipProxyController::processRequestWithRouteHeader forcing tport to reach route " << buffer ;
         }
 
         int rc = nta_msg_tsend( NTA, msg_ref_create(msg), NULL,

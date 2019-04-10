@@ -50,10 +50,8 @@ namespace drachtio {
     }
 
     void counterIncrement(const string& name, mapLabels_t& labels) {
-      DR_LOG(log_info) << "counterIncrement";
       mapCounter_t::const_iterator it = m_mapCounter.find(name) ;
       if (m_mapCounter.end() != it) {
-        DR_LOG(log_info) << "counterIncrement 2";
         it->second->Add(labels).Increment() ;
       }
     }
