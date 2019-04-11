@@ -451,35 +451,7 @@ namespace drachtio {
                }
             }
             if( NULL == tp ) {
-                string proto = "udp" ;
-                string tcp = "transport=tcp" ;
-                string wss = "transport=wss" ;
-                string ws = "transport=ws" ;
-                string tls = "transport=tls" ;
-                string *r = useOutboundProxy ? &sipOutboundProxy : &requestUri;
-
-                typedef const boost::iterator_range<std::string::const_iterator> StringRange;
-
-                if ( boost::ifind_first(StringRange(r->begin(), r->end()), StringRange(tcp.begin(), tcp.end()))) {
-                    proto = "tcp" ;
-                }
-                else if( boost::ifind_first(StringRange(r->begin(), r->end()), StringRange(wss.begin(), wss.end()))) {
-                    proto = "wss";
-                }
-                else if( boost::ifind_first(StringRange(r->begin(), r->end()), StringRange(ws.begin(), ws.end()))) {
-                    proto = "ws";
-                }
-                else if( boost::ifind_first(StringRange(r->begin(), r->end()), StringRange(tls.begin(), tls.end()))) {
-                    proto = "tls";
-                }
-
-                if (useOutboundProxy) {
-                    DR_LOG(log_debug) << "SipDialogController::doSendRequestOutsideDialog attempting to determine transport tport for route url " << sipOutboundProxy << " proto: " << proto ;
-                }
-                else {
-                    DR_LOG(log_debug) << "SipDialogController::doSendRequestOutsideDialog attempting to determine transport tport for request-uri " << requestUri << " proto: " << proto ;
-                }
-                pSelectedTransport = SipTransport::findAppropriateTransport( useOutboundProxy ? sipOutboundProxy.c_str() : requestUri.c_str(), proto.c_str() ) ;
+                pSelectedTransport = SipTransport::findAppropriateTransport( useOutboundProxy ? sipOutboundProxy.c_str() : requestUri.c_str()) ;
                 if (!pSelectedTransport) {
                     throw std::runtime_error(string("requested protocol/transport not available"));
                 }
@@ -491,8 +463,7 @@ namespace drachtio {
                 port = pSelectedTransport->getPort() ;
 
                 tp = (tport_t *) pSelectedTransport->getTport() ;
-                DR_LOG(log_debug) << "SipDialogController::doSendRequestOutsideDialog selected transport " << std::hex << (void*)tp ;
-                DR_LOG(log_debug) << "SipDialogController::doSendRequestOutsideDialog selected transport " << desc ;
+                DR_LOG(log_debug) << "SipDialogController::doSendRequestOutsideDialog selected transport " << std::hex << (void*)tp << desc ;
                 forceTport = true ;
             }
             su_free( m_pController->getHome(), sip_request ) ;

@@ -69,6 +69,9 @@ const string STATS_GAUGE_START_TIME = "drachtio_time_started";
 const string STATS_GAUGE_STABLE_DIALOGS = "drachtio_stable_dialogs";
 const string STATS_GAUGE_PROXY = "drachtio_proxy_cores";
 const string STATS_GAUGE_REGISTERED_ENDPOINTS = "drachtio_registered_endpoints";
+const string STATS_GAUGE_CLIENT_APP_CONNECTIONS = "drachtio_app_connections";
+
+// sofia status
 const string STATS_GAUGE_SOFIA_SERVER_HASH_SIZE = "sofia_server_txn_hash_size";
 const string STATS_GAUGE_SOFIA_CLIENT_HASH_SIZE = "sofia_client_txn_hash_size";
 const string STATS_GAUGE_SOFIA_DIALOG_HASH_SIZE = "sofia_dialog_hash_size";

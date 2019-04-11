@@ -171,6 +171,7 @@ namespace drachtio {
   	DrachtioController() ;
 
   	bool parseCmdArgs( int argc, char* argv[] ) ;
+    void getEnv(void);
   	void usage() ;
   	
   	void daemonize() ;

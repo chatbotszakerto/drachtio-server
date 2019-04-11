@@ -28,6 +28,7 @@ THE SOFTWARE.
 #include <algorithm>
 #include <functional>
 #include <regex>
+#include <cstdlib>
 
 #include <prometheus/exposer.h>
 #include <prometheus/registry.h>
@@ -270,7 +271,10 @@ namespace drachtio {
         m_current_severity_threshold(log_none), m_nSofiaLoglevel(-1), m_bIsOutbound(false), m_bConsoleLogging(false),
         m_nHomerPort(0), m_nHomerId(0), m_mtu(0), m_bAggressiveNatDetection(false), 
         m_nPrometheusPort(0), m_strPrometheusAddress("0.0.0.0") {
-        
+
+        getEnv();
+
+        // command line arguments, if provided, override env vars
         if( !parseCmdArgs( argc, argv ) ) {
             usage() ;
             exit(-1) ;
@@ -393,7 +397,7 @@ namespace drachtio {
                 {"tls-port",    required_argument, 0, 'H'},
                 {"aggressive-nat-detection", no_argument, 0, 'I'},
                 {"aggressive-nat-detection", no_argument, 0, 'I'},
-                {"prometheus-port", required_argument, 0, 'J'},
+                {"prometheus-scrape-port", required_argument, 0, 'J'},
                 {"version",    no_argument, 0, 'v'},
                 {0, 0, 0, 0}
             };
@@ -629,11 +633,10 @@ namespace drachtio {
         cerr << "    --address                      Bind to the specified address for application connections (default: 0.0.0.0)" << endl ;
         cerr << "    --aggressive-nat-detection     take presence of 'nat=yes' in Record-Route or Contact hdr as an indicator a remote server is behind a NAT" << endl ;
         cerr << "    --daemon                       Run the process as a daemon background process" << endl ;
-        cerr << "    --encrypt-inbound-connections  Run the process as a daemon background process" << endl ;
         cerr << "    --cert-file                    TLS certificate file" << endl ;
         cerr << "    --chain-file                   TLS certificate chain file" << endl ;
         cerr << "-c, --contact                      Sip contact url to bind to (see /etc/drachtio.conf.xml for examples)" << endl ;
-        cerr << "    --dh-param                     file containing Diffie-Helman parameters, required when using --encrypt-inbound-connections" << endl ;
+        cerr << "    --dh-param                     file containing Diffie-Helman parameters, required when using encrypted TLS admin connections" << endl ;
         cerr << "    --dns-name                     specifies a DNS name that resolves to the local host, if any" << endl ;
         cerr << "-f, --file                         Path to configuration file (default /etc/drachtio.conf.xml)" << endl ;
         cerr << "    --homer                        ip:port of homer/sipcapture agent" << endl ;
@@ -645,11 +648,71 @@ namespace drachtio {
         cerr << "    --local-net                    CIDR for local subnet (e.g. \"10.132.0.0/20\")" << endl ;
         cerr << "    --mtu                          max packet size for UDP (default: system-defined mtu)" << endl ;
         cerr << "-p, --port                         TCP port to listen on for application connections (default 9022)" << endl ;
+        cerr << "    --prometheus-scrape-port       The port (or host:port) to listen on for Prometheus.io metrics scrapes" << endl ;
         cerr << "    --secret                       The shared secret to use for authenticating application connections" << endl ;
         cerr << "    --sofia-loglevel               Log level of internal sip stack (choices: 0-9)" << endl ;
         cerr << "    --external-ip                  External IP address to use in SIP messaging" << endl ;
         cerr << "    --stdout                       Log to standard output as well as any configured log destinations" << endl ;
         cerr << "-v  --version                      Print version and exit" << endl ;
+    }
+    void DrachtioController::getEnv(void) {
+        const char* p = std::getenv("DRACHTIO_ADMIN_ADDRESS");
+        if (p) m_adminAddress = p;
+        p = std::getenv("DRACHTIO_ADMIN_TCP_PORT");
+        if (p && ::atoi(p) > 0) m_adminTcpPort = ::atoi(p);
+        p = std::getenv("DRACHTIO_ADMIN_TLS_PORT");
+        if (p && ::atoi(p) > 0) m_adminTlsPort = ::atoi(p);
+        p = std::getenv("DRACHTIO_AGRESSIVE_NAT_DETECTION");
+        if (p && ::atoi(p) == 1) m_bAggressiveNatDetection = true;
+        p = std::getenv("DRACHTIO_TLS_CERT_FILE");
+        if (p) m_tlsCertFile = p;
+        p = std::getenv("DRACHTIO_TLS_CHAIN_FILE");
+        if (p) m_tlsChainFile = p;
+        p = std::getenv("DRACHTIO_TLS_KEY_FILE");
+        if (p) m_tlsKeyFile = p;
+        p = std::getenv("DRACHTIO_TLS_DH_PARAM_FILE");
+        if (p) m_dhParam = p;
+        p = std::getenv("DRACHTIO_CONFIG_FILE_PATH");
+        if (p) m_configFilename = p;
+        p = std::getenv("DRACHTIO_HOMER_ADDRESS");
+        if (p) m_strHomerAddress = p;
+        p = std::getenv("DRACHTIO_HOMER_PORT");
+        if (p && ::atoi(p) > 0) m_nHomerPort = ::atoi(p);
+        p = std::getenv("DRACHTIO_HOMER_ID");
+        if (p && ::atoi(p) > 0) m_nHomerId = ::atoi(p);
+        p = std::getenv("DRACHTIO_HTTP_HANDLER_URI");
+        if (p) {
+            m_requestRouter.clearRoutes();
+            m_requestRouter.addRoute("*", "GET", p, true);
+        }
+        p = std::getenv("DRACHTIO_LOGLEVEL");
+        if (p) {
+            if( 0 == strcmp(p, "notice") ) m_current_severity_threshold = log_notice ;
+            else if( 0 == strcmp(p,"error") ) m_current_severity_threshold = log_error ;
+            else if( 0 == strcmp(p,"warning") ) m_current_severity_threshold = log_warning ;
+            else if( 0 == strcmp(p,"info") ) m_current_severity_threshold = log_info ;
+            else if( 0 == strcmp(p,"debug") ) m_current_severity_threshold = log_debug ;
+        }
+        p = std::getenv("DRACHTIO_SOFIA_LOGLEVEL");
+        if (p && ::atoi(p) > 0 && ::atoi(p) <= 9) m_nSofiaLoglevel = ::atoi(p);
+        p = std::getenv("DRACHTIO_UDP_MTU");
+        if (p && ::atoi(p) > 0) m_mtu = ::atoi(p);
+        p = std::getenv("DRACHTIO_SECRET");
+        if (p) m_secret = p;
+        p = std::getenv("DRACHTIO_CONSOLE_LOGGING");
+        if (p && ::atoi(p) == 1) m_bConsoleLogging = true;
+        p = std::getenv("DRACHTIO_PROMETHEUS_SCRAPE_PORT");
+        if (p){
+            vector<string>strs;
+            boost::split(strs, p, boost::is_any_of(":"));
+            if(strs.size() == 2) {
+                m_strPrometheusAddress = strs[0];
+                m_nPrometheusPort = boost::lexical_cast<uint32_t>(strs[1]);
+            }
+            else {
+                m_nPrometheusPort = boost::lexical_cast<uint32_t>(p); 
+            }            
+        }
     }
 
     void DrachtioController::daemonize() {
@@ -1957,6 +2020,9 @@ namespace drachtio {
         STATS_GAUGE_CREATE(STATS_GAUGE_STABLE_DIALOGS, "count of SIP dialogs in progress")
         STATS_GAUGE_CREATE(STATS_GAUGE_PROXY, "count of proxied call setups in progress")
         STATS_GAUGE_CREATE(STATS_GAUGE_REGISTERED_ENDPOINTS, "count of registered endpoints")
+        STATS_GAUGE_CREATE(STATS_GAUGE_CLIENT_APP_CONNECTIONS, "count of connections to drachtio applications")
+
+        //sofia stats
         STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_CLIENT_HASH_SIZE, "current size of sofia hash table for client transactions")
         STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_SERVER_HASH_SIZE, "current size of sofia hash table for server transactions")
         STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_DIALOG_HASH_SIZE, "current size of sofia hash table for dialogs")
