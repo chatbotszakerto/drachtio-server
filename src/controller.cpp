@@ -1005,6 +1005,9 @@ namespace drachtio {
             DR_LOG(log_notice) << "responding to Prometheus on " << hostport;
             m_statsCollector.enablePrometheus(hostport.c_str());
         }
+        else {
+            DR_LOG(log_notice) << "Prometheus support disabled";
+        }
         initStats();
 
         int rv = su_init() ;
