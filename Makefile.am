@@ -3,8 +3,8 @@ INCLUDES= -I${srcdir}/deps/boost_1_69_0 -I${srcdir}/deps/sofia-sip/libsofia-sip-
  -I${srcdir}/deps/sofia-sip/libsofia-sip-ua/sip -I${srcdir}/deps/sofia-sip/libsofia-sip-ua/msg \
  -I${srcdir}/deps/sofia-sip/libsofia-sip-ua/url -I${srcdir}/deps/sofia-sip/libsofia-sip-ua/tport \
  -I${srcdir}/deps/sofia-sip/libsofia-sip-ua/bnf -I${srcdir}/deps/jansson-2.10/src \
- -I${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/include -I/usr/local/include
-AM_LDFLAGS= -L/usr/local/lib -L${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/lib -L${srcdir}/deps/boost_1_69_0/stage/lib
+ -I${srcdir}/deps/prometheus-cpp/build/include -I/usr/local/include
+AM_LDFLAGS= -L/usr/local/lib -L${srcdir}/deps/prometheus-cpp/build/lib -L${srcdir}/deps/boost_1_69_0/stage/lib
 LDADD= -lboost_thread -lpthread -lssl -lcrypto -lz
 bin_PROGRAMS= drachtio timer ssltest parser uri_test test_https test_asio_curl
 
@@ -52,8 +52,8 @@ if LINUX
 drachtio_LDADD += ${srcdir}/deps/boost_1_69_0/stage/lib/libboost_thread.a \
 	${srcdir}/deps/boost_1_69_0/stage/lib/libboost_system.a ${srcdir}/deps/boost_1_69_0/stage/lib/libboost_log.a \
 	${srcdir}/deps/boost_1_69_0/stage/lib/libboost_filesystem.a \
-	${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/lib/libprometheus-cpp-pull.a \
-	${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/lib/libprometheus-cpp-core.a \
+	${srcdir}/deps/prometheus-cpp/build/lib/libprometheus-cpp-pull.a \
+	${srcdir}/deps/prometheus-cpp/build/lib/libprometheus-cpp-core.a \
 	-lpthread -lssl -lcrypto -lz -lrt
 timer_LDADD += -lrt
 parser_LDADD += -lrt
@@ -64,8 +64,8 @@ if OSX
 drachtio_LDADD += -L/usr/local/opt/openssl/lib ${srcdir}/deps/boost_1_69_0/stage/lib/libboost_thread.a \
 	${srcdir}/deps/boost_1_69_0/stage/lib/libboost_system.a ${srcdir}/deps/boost_1_69_0/stage/lib/libboost_log.a \
 	${srcdir}/deps/boost_1_69_0/stage/lib/libboost_filesystem.a \
-	${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/lib/libprometheus-cpp-pull.a  \
-	${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/lib/libprometheus-cpp-core.a  \
+	${srcdir}/deps/prometheus-cpp/build/lib/libprometheus-cpp-pull.a  \
+	${srcdir}/deps/prometheus-cpp/build/lib/libprometheus-cpp-core.a  \
 	-lpthread -lssl -lcrypto -lz 
 drachtio_CPPFLAGS += -I/usr/local/opt/openssl/include -fvisibility=hidden
 test_https_LDADD += -L/usr/local/opt/openssl/lib ${srcdir}/deps/boost_1_69_0/stage/lib/libboost_system.a
@@ -74,7 +74,7 @@ make_BOOST_CMD = cd ${srcdir}/deps/boost_1_69_0 && ./bootstrap.sh --with-toolset
 endif
 
 BUILT_SOURCES=${srcdir}/deps/boost_1_69_0/stage/lib/libboost_thread.a ${srcdir}/deps/sofia-sip/libsofia-sip-ua/.libs/libsofia-sip-ua.a \
-	${srcdir}/deps/jansson-2.10/src/.libs/libjansson.a ${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/lib/libprometheus-cpp-core.a
+	${srcdir}/deps/jansson-2.10/src/.libs/libjansson.a ${srcdir}/deps/prometheus-cpp/build/lib/libprometheus-cpp-core.a
 
 clean-local:
 	cd ${srcdir}/deps/boost_1_69_0 && ./bootstrap.sh && ./b2 clean
@@ -90,8 +90,10 @@ ${srcdir}/deps/sofia-sip/libsofia-sip-ua/.libs/libsofia-sip-ua.a:
 ${srcdir}/deps/jansson-2.10/src/.libs/libjansson.a:
 	cd ${srcdir}/deps/jansson-2.10 && autoreconf -fi && ./configure && $(MAKE)
 
-${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/lib/libprometheus-cpp-core.a ${srcdir}/deps/prometheus-cpp/build/deploy/usr/local/lib/libprometheus-cpp-pull.a:
-	cd ${srcdir}/deps/prometheus-cpp && mkdir -p build && cd build && cmake .. -DBUILD_SHARED_LIBS=OFF && $(MAKE) && mkdir -p deploy && make DESTDIR=`pwd`/deploy install
+${srcdir}/deps/prometheus-cpp/build/lib/libprometheus-cpp-core.a ${srcdir}/deps/prometheus-cpp/build/lib/libprometheus-cpp-pull.a:
+	cd ${srcdir}/deps/prometheus-cpp && mkdir -p build && cd build  && \
+	cmake .. -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_LIBDIR=lib -DCMAKE_INSTALL_PREFIX=`pwd` && \
+	$(MAKE) && make install
 
 
 
