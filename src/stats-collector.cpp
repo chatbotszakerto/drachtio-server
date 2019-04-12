@@ -34,8 +34,6 @@ namespace drachtio {
     PromImpl(const char* szHostport) : m_exposer(szHostport) {
       m_registry = std::make_shared<Registry>();
       m_exposer.RegisterCollectable(m_registry);
-
-      DR_LOG(log_info) << "listening for prometheus scrape on " << szHostport;
     }
     ~PromImpl() {}
 
