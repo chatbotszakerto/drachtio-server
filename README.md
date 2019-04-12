@@ -58,7 +58,7 @@ To see all of the command line options, run `drachtio -h`.
 The process can be installed as a Linux systemd or init script using the example script that can be found in [drachtio.service](drachtio.service) or [drachtio-init-script](drachtio-init-script).
 
 ## Configuring
-drachtio can be configured via a configuration file ([see sample config](drachtio.conf.xml), environment variables, or command-line arguments.  The order of precedence is that command-line arguments will dictate, if provided; otherwise environment variables (if provided), and last of all the configuration file.  This is on a parameter-by-parameter basis; i.e. one configuration option may be provided by environment variables, some others by command-line args, and the rest by a configuration file.
+drachtio can be configured via a configuration file ([see sample config](drachtio.conf.xml)), environment variables, or command-line arguments.  The order of precedence is that command-line arguments will dictate, if provided; otherwise environment variables (if provided), and last of all the configuration file.  This is on a parameter-by-parameter basis; i.e. one configuration option may be provided by environment variables, some others by command-line args, and the rest by a configuration file.
 
 ### Overview
 
@@ -79,7 +79,8 @@ or, via command line:
 drachtio --contact "sip:172.28.0.1:5060;transport=udp,tcp" \
    --contact "sip:172.28.0.1:5080;transport=udp,tcp"
 ```
-> Note: there is currently no option to specify these settings via environment variables
+> Note: there is currently no option to specify these settings via environment variables.
+
 Optionally, you can also specify an external ip address to associate with a sip contact, if the server is set up to masquerade or is otherwise assigned a public IP address that it does not know about.  You can also specify the local network CIDR associated with a sip address, which is useful in scenarios where a server is connected to both public and private networks.  See the sample configuration file for more details on this.
 
 #### Admin port
@@ -135,7 +136,7 @@ or, using environment variables
 DRACHTIO_HOMER_ADDRESS=172.28.0.23 DRACHTIO_HOMER_PORT=9060 DRACHTIO_HOMER_ID=101 drachtio
 ```
 ##### Prometheus.io
-drachtio can be configured to report metrics to Prometheus.
+drachtio can be configured to report metrics to [Prometheus](https://prometheus.io/).
 ```xml
 <drachtio>
   <monitoring>
