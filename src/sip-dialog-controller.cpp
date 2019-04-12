@@ -1140,8 +1140,14 @@ namespace drachtio {
             // we can get an rc=0 from nta_incoming_treply above, but have it actually fail
             // in the case of a websocket that closed immediately after sending us a BYE
             if (msg) {
-                EncodeStackMessage( sip_object(msg), encodedMessage ) ;
+                sip_t *sip = sip_object( msg );
+                EncodeStackMessage( sip, encodedMessage ) ;
                 SipMsgData_t meta( msg, irq, "application" ) ;
+
+                STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
+                    {"direction", "outbound"},
+                    {"method", sip->sip_cseq->cs_method_name},
+                    {"code", boost::lexical_cast<std::string>(code)}})
 
                 string s ;
                 meta.toMessageFormat(s) ;
