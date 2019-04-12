@@ -87,6 +87,7 @@ namespace drachtio {
       client = m_pClientController->selectClientForRequestOutsideDialog( sip->sip_request->rq_method_name ) ;
       if( !client ) {
         DR_LOG(log_error) << "processNewRequest - No providers available for " << sip->sip_request->rq_method_name  ;
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", "sip->sip_request->rq_method_name"},{"code", "503"}})
         generateUuid( transactionId ) ;
         return 503 ;
       }

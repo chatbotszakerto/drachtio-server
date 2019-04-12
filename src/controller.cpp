@@ -1429,7 +1429,8 @@ namespace drachtio {
 
                /* system-wide minimum session-expires is 90 seconds */
                 if( sip->sip_session_expires && sip->sip_session_expires->x_delta < 90 ) {
-                      nta_incoming_treply( irq, SIP_422_SESSION_TIMER_TOO_SMALL, 
+                    STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name},{"code", "422"}})
+                    nta_incoming_treply( irq, SIP_422_SESSION_TIMER_TOO_SMALL, 
                         SIPTAG_MIN_SE_STR("90"),
                         TAG_END() ) ; 
                       return 0;
