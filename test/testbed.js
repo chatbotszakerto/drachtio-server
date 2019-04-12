@@ -43,7 +43,7 @@ obj.start = (confPath, extraArgs, tls = false, waitDelay = 500, env = {}) => {
       reject(err);
     });
     router.stdout.on('data', (data) => {
-      debug(`${data.toString()}`);
+      console.log(`${data.toString()}`);
     });
     router.stderr.on('data', (data) => {
       console.log(`${data.toString()}`);
