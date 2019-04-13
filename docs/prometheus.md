@@ -55,8 +55,12 @@ drachtio_time_started 1555075955.000000
 # TYPE sofia_retransmitted_requests_total gauge
 # HELP sofia_retransmitted_responses_total count of sip responses retransmitted by sofia sip stack
 # TYPE sofia_retransmitted_responses_total gauge
-# HELP drachtio_call_answer_seconds call answer seconds
-# TYPE drachtio_call_answer_seconds histogram
-# HELP drachtio_call_pdd_seconds call post-dial delay seconds
-# TYPE drachtio_call_pdd_seconds histogram
+# HELP drachtio_call_answer_seconds_in time to answer incoming call
+# TYPE drachtio_call_answer_seconds_in histogram
+# HELP drachtio_call_answer_seconds_out time to answer outgoing call
+# TYPE drachtio_call_answer_seconds_out histogram
+# HELP drachtio_call_pdd_seconds_in call post-dial delay in seconds for calls received
+# TYPE drachtio_call_pdd_seconds_in histogram
+# HELP drachtio_call_pdd_seconds_out call post-dial delay in seconds for calls sent
+# TYPE drachtio_call_pdd_seconds_out histogram
 ```

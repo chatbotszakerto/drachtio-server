@@ -281,10 +281,10 @@ namespace drachtio {
                 std::chrono::duration<double> diff = now - this->getArrivalTime();
                 if (!this->hasAlerted() && m_sipStatus >= 180) {
                     this->alerting();
-                    STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_PDD, diff.count(), {{"direction", "inbound"}})
+                    STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_PDD_IN, diff.count())
                 }
                 if (m_sipStatus == 200) {
-                    STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_RESPONSE_TIME, diff.count(), {{"direction", "inbound"}})
+                    STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_RESPONSE_TIME_IN, diff.count())
                 }
 
             }
@@ -704,7 +704,7 @@ namespace drachtio {
                         this->alerting();
                         auto now = std::chrono::steady_clock::now();
                         std::chrono::duration<double> diff = now - this->getArrivalTime();
-                        STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_PDD, diff.count(), {{"direction", "outbound"}})
+                        STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_PDD_OUT, diff.count())
                     }
                 }                  
             }
@@ -718,10 +718,10 @@ namespace drachtio {
                 if (theOneAndOnlyController->getStatsCollector().enabled() && this->isInviteTransaction() && 200 == m_sipStatus) {
                     auto now = std::chrono::steady_clock::now();
                     std::chrono::duration<double> diff = now - this->getArrivalTime();
-                    STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_RESPONSE_TIME, diff.count(), {{"direction", "outbound"}})
+                    STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_RESPONSE_TIME_OUT, diff.count())
 
                     if (!this->hasAlerted()) {
-                        STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_PDD, diff.count(), {{"direction", "outbound"}})
+                        STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_PDD_OUT, diff.count())
                     }
                 }
             }

@@ -727,10 +727,10 @@ namespace drachtio {
                     std::chrono::duration<double> diff = now - dlg->getArrivalTime();
                     if (!dlg->hasAlerted()) {
                         dlg->alerting();
-                        STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_PDD, diff.count(), {{"direction", "outbound"}})
+                        STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_PDD_OUT, diff.count())
                     }
                     if (200 == dlg->getSipStatus()) {
-                        STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_RESPONSE_TIME, diff.count(), {{"direction", "outbound"}})
+                        STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_RESPONSE_TIME_OUT, diff.count())
                     }
                 }
             }
@@ -1099,10 +1099,16 @@ namespace drachtio {
                     if (theOneAndOnlyController->getStatsCollector().enabled()) {
     
                         // response time to incoming INVITE request
-                        if (sip_method_invite == nta_incoming_method(irq) && code == 200) {
+                        if (sip_method_invite == nta_incoming_method(irq) && code <= 200) {
                             auto now = std::chrono::steady_clock::now();
                             std::chrono::duration<double> diff = now - dlg->getArrivalTime();
-                            STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_RESPONSE_TIME, diff.count(), {{"direction", "inbound"}})
+                            if (!dlg->hasAlerted()) {
+                                dlg->alerting();
+                                STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_PDD_IN, diff.count())
+                            }
+                            if (code == 200) {
+                                STATS_HISTOGRAM_OBSERVE_NOCHECK(STATS_HISTOGRAM_INVITE_RESPONSE_TIME_IN, diff.count())
+                            }
                         }
                     }
                 }

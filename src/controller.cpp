@@ -2044,9 +2044,13 @@ namespace drachtio {
         STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_RETRANS_REQ, "count of sip requests retransmitted by sofia sip stack")
         STATS_GAUGE_CREATE(STATS_GAUGE_SOFIA_RETRANS_RES, "count of sip responses retransmitted by sofia sip stack")
 
-        STATS_HISTOGRAM_CREATE(STATS_HISTOGRAM_INVITE_RESPONSE_TIME, "call answer seconds", 
+        STATS_HISTOGRAM_CREATE(STATS_HISTOGRAM_INVITE_RESPONSE_TIME_IN, "call answer time in seconds for calls received", 
             {1.0, 3.0, 6.0, 10.0, 15.0, 20.0, 30.0, 60.0})
-        STATS_HISTOGRAM_CREATE(STATS_HISTOGRAM_INVITE_PDD, "call post-dial delay seconds", 
+        STATS_HISTOGRAM_CREATE(STATS_HISTOGRAM_INVITE_RESPONSE_TIME_OUT, "call answer time in seconds for calls sent", 
+            {1.0, 3.0, 6.0, 10.0, 15.0, 20.0, 30.0, 60.0})
+        STATS_HISTOGRAM_CREATE(STATS_HISTOGRAM_INVITE_PDD_IN, "call post-dial delay seconds for calls received", 
+            {1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0})
+        STATS_HISTOGRAM_CREATE(STATS_HISTOGRAM_INVITE_PDD_OUT, "call post-dial delay seconds for calls received", 
             {1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0})
 
         STATS_COUNTER_INCREMENT(STATS_COUNTER_BUILD_INFO, {{"version", DRACHTIO_VERSION}})
