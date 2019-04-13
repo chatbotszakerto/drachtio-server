@@ -52,26 +52,25 @@ namespace {
     void cloneSendSipCancelRequest(su_root_magic_t* p, su_msg_r msg, void* arg ) {
         drachtio::DrachtioController* pController = reinterpret_cast<drachtio::DrachtioController*>( p ) ;
         drachtio::SipDialogController::SipMessageData* d = reinterpret_cast<drachtio::SipDialogController::SipMessageData*>( arg ) ;
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", "CANCEL"}})
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_IN, {{"method", "CANCEL"}})
         pController->getDialogController()->doSendCancelRequest( d ) ;
     }
     int uacLegCallback( nta_leg_magic_t* p, nta_leg_t* leg, nta_incoming_t* irq, sip_t const *sip) {
-        if( sip && sip->sip_request ) STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
+        if( sip && sip->sip_request ) STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_IN, {{"method", sip->sip_request->rq_method_name}})
         drachtio::DrachtioController* pController = reinterpret_cast<drachtio::DrachtioController*>( p ) ;
         return pController->getDialogController()->processRequestInsideDialog( leg, irq, sip) ;
     }
     int uasCancelOrAck( nta_incoming_magic_t* p, nta_incoming_t* irq, sip_t const *sip ) {
-        if( sip && sip->sip_request ) STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
+        if( sip && sip->sip_request ) STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_IN, {{"method", sip->sip_request->rq_method_name}})
         drachtio::DrachtioController* pController = reinterpret_cast<drachtio::DrachtioController*>( p ) ;
         return pController->getDialogController()->processCancelOrAck( p, irq, sip) ;
     }
     int uasPrack( drachtio::SipDialogController *pController, nta_reliable_t *rel, nta_incoming_t *prack, sip_t const *sip) {
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", "PRACK"}})
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_IN, {{"method", "PRACK"}})
         return pController->processPrack( rel, prack, sip) ;
     }
    int response_to_request_outside_dialog( nta_outgoing_magic_t* p, nta_outgoing_t* request, sip_t const* sip ) {  
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
-            {"direction", "inbound"},
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_IN, {
             {"method", sip->sip_cseq->cs_method_name},
             {"code", boost::lexical_cast<std::string>(sip->sip_status->st_status)}
         }) 
@@ -80,8 +79,7 @@ namespace {
     } 
    int response_to_request_inside_dialog( nta_outgoing_magic_t* p, nta_outgoing_t* request, sip_t const* sip ) {   
         drachtio::DrachtioController* pController = reinterpret_cast<drachtio::DrachtioController*>( p ) ;
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
-            {"direction", "inbound"},
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_IN, {
             {"method", sip->sip_cseq->cs_method_name},
             {"code", boost::lexical_cast<std::string>(sip->sip_status->st_status)}
         }) 
@@ -318,7 +316,7 @@ namespace drachtio {
                 msg_t* m = nta_outgoing_getrequest(orq) ;  // adds a reference
                 sip_t* sip = sip_object( m ) ;
 
-                STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name}})
+                STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_OUT, {{"method", sip->sip_request->rq_method_name}})
 
                 string encodedMessage ;
                 EncodeStackMessage( sip, encodedMessage ) ;
@@ -557,7 +555,7 @@ namespace drachtio {
             msg_t* m = nta_outgoing_getrequest(orq) ; //adds a reference
             sip_t* sip = sip_object( m ) ;
 
-            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name}})
+            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_OUT, {{"method", sip->sip_request->rq_method_name}})
 
             if( method == sip_method_invite || method == sip_method_subscribe ) {
                 std::shared_ptr<SipDialog> dlg = std::make_shared<SipDialog>( pData->getDialogId(), pData->getTransactionId(), 
@@ -1144,8 +1142,7 @@ namespace drachtio {
                 EncodeStackMessage( sip, encodedMessage ) ;
                 SipMsgData_t meta( msg, irq, "application" ) ;
 
-                STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
-                    {"direction", "outbound"},
+                STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_OUT, {
                     {"method", sip->sip_cseq->cs_method_name},
                     {"code", boost::lexical_cast<std::string>(code)}})
 
@@ -1381,7 +1378,7 @@ namespace drachtio {
 
             nta_outgoing_destroy( ack_request ) ;
 
-            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", "ACK"}})
+            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_OUT, {{"method", "ACK"}})
 
             if( sip->sip_status->st_status != 200 ) {
                 //TODO: notify client that call has failed, send BYE
@@ -1549,7 +1546,7 @@ namespace drachtio {
             std::shared_ptr<RIP> p = std::make_shared<RIP>( transactionId ) ; 
             addRIP( orq, p ) ;
 
-            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", "INVITE"}})
+            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_OUT, {{"method", "INVITE"}})
 
             //m_pClientController->route_event_inside_dialog( "{\"eventName\": \"refresh\"}",dlg->getTransactionId(), dlg->getDialogId() ) ;
         }
@@ -1565,7 +1562,7 @@ namespace drachtio {
                                             TAG_END() ) ;
             nta_outgoing_destroy(orq) ;
 
-            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", "BYE"}})
+            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_OUT, {{"method", "BYE"}})
 
             //m_pClientController->route_event_inside_dialog( "{\"eventName\": \"terminate\",\"eventData\":\"session expired\"}",dlg->getTransactionId(), dlg->getDialogId() ) ;
         }
@@ -1797,7 +1794,7 @@ namespace drachtio {
         msg_t* m = nta_outgoing_getrequest(orq) ;  // adds a reference
         sip_t* sip = sip_object( m ) ;
 
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", "BYE"}})
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_OUT, {{"method", "BYE"}})
 
         string encodedMessage ;
         EncodeStackMessage( sip, encodedMessage ) ;

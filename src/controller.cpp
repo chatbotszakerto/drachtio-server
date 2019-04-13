@@ -150,7 +150,7 @@ namespace {
                         nta_leg_t* leg,
                         nta_incoming_t* irq,
                         sip_t const *sip) {
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_IN, {{"method", sip->sip_request->rq_method_name}})
         return controller->processRequestOutsideDialog( leg, irq, sip ) ;
     }
     int legCallback( nta_leg_magic_t* controller,
@@ -158,14 +158,14 @@ namespace {
                         nta_incoming_t* irq,
                         sip_t const *sip) {
         
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_IN, {{"method", sip->sip_request->rq_method_name}})
         return controller->processRequestInsideDialog( leg, irq, sip ) ;
     }
     int stateless_callback(nta_agent_magic_t *controller,
                     nta_agent_t *agent,
                     msg_t *msg,
                     sip_t *sip) {
-        if( sip && sip->sip_request ) STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
+        if( sip && sip->sip_request ) STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_IN, {{"method", sip->sip_request->rq_method_name}})
         return controller->processMessageStatelessly( msg, sip ) ;
     }
 
@@ -1160,7 +1160,7 @@ namespace drachtio {
             // sofia sanity check on message format
             if( sip_sanity_check(sip) < 0 ) {
                 DR_LOG(log_error) << "DrachtioController::processMessageStatelessly: invalid incoming request message; discarding call-id " << sip->sip_call_id->i_id ;
-                STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name},{"code", "400"}})
+                STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_OUT, {{"method", sip->sip_request->rq_method_name},{"code", "400"}})
                 nta_msg_treply( m_nta, msg, 400, NULL, TAG_END() ) ;
                 return -1 ;
             }
@@ -1213,7 +1213,7 @@ namespace drachtio {
                     DR_LOG(log_notice) << "DrachtioController::processMessageStatelessly: detected potential spammer from " <<
                         nta_incoming_remote_host(irq) << ":" << nta_incoming_remote_port(irq)  << 
                         " due to header value: " << err.what()  ;
-                    STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name},{"code", "603"}})
+                    STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_OUT, {{"method", sip->sip_request->rq_method_name},{"code", "603"}})
                     nta_incoming_treply( irq, 603, "Decline", TAG_END() ) ;
                     nta_incoming_destroy(irq) ;   
 
@@ -1322,21 +1322,21 @@ namespace drachtio {
                                 m_pClientController->getIOService().post( std::bind(fn, client, p->getTransactionId(), encodedMessage, meta)) ;
                             }
 
-                            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name},{"code", "200"}})
+                            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_OUT, {{"method", sip->sip_request->rq_method_name},{"code", "200"}})
                             nta_msg_treply( m_nta, msg, 200, NULL, TAG_END() ) ;  
                             p->cancel() ;
-                            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", "INVITE"},{"code", "487"}})
+                            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_OUT, {{"method", "INVITE"},{"code", "487"}})
                             nta_msg_treply( m_nta, msg_dup(p->getMsg()), 487, NULL, TAG_END() ) ;
                         }
                         else {
-                            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name},{"code", "481"}})
+                            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_OUT, {{"method", sip->sip_request->rq_method_name},{"code", "481"}})
                             nta_msg_treply( m_nta, msg, 481, NULL, TAG_END() ) ;                              
                         }
                     }
                     break ;
 
                     case sip_method_bye:
-                        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name},{"code", "481"}})
+                        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_OUT, {{"method", sip->sip_request->rq_method_name},{"code", "481"}})
                         nta_msg_treply( m_nta, msg, 481, NULL, TAG_END() ) ;   
                         break;                           
 
@@ -1429,7 +1429,7 @@ namespace drachtio {
 
                /* system-wide minimum session-expires is 90 seconds */
                 if( sip->sip_session_expires && sip->sip_session_expires->x_delta < 90 ) {
-                    STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name},{"code", "422"}})
+                    STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_OUT, {{"method", sip->sip_request->rq_method_name},{"code", "422"}})
                     nta_incoming_treply( irq, SIP_422_SESSION_TIMER_TOO_SMALL, 
                         SIPTAG_MIN_SE_STR("90"),
                         TAG_END() ) ; 
@@ -2016,8 +2016,10 @@ namespace drachtio {
     }
 
     void DrachtioController::initStats() {
-        STATS_COUNTER_CREATE(STATS_COUNTER_SIP_REQUESTS, "count of sip requests")
-        STATS_COUNTER_CREATE(STATS_COUNTER_SIP_RESPONSES, "count of sip responses")
+        STATS_COUNTER_CREATE(STATS_COUNTER_SIP_REQUESTS_IN, "count of sip requests received")
+        STATS_COUNTER_CREATE(STATS_COUNTER_SIP_REQUESTS_OUT, "count of sip requests sent")
+        STATS_COUNTER_CREATE(STATS_COUNTER_SIP_RESPONSES_IN, "count of sip responses received")
+        STATS_COUNTER_CREATE(STATS_COUNTER_SIP_RESPONSES_OUT, "count of sip responses sent")
         STATS_COUNTER_CREATE(STATS_COUNTER_BUILD_INFO, "drachtio version running")
 
         STATS_GAUGE_CREATE(STATS_GAUGE_START_TIME, "drachtio start time")

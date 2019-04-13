@@ -5,23 +5,14 @@ drachtio exposes the following metrics to Prometheus:
 ./drachtio --prometheus-scrape-port 9099 -f ../test/drachtio.conf.xml &
 
 $ curl 127.0.0.1:9099/metrics
-# HELP exposer_transferred_bytes_total Transferred bytes to metrics services
-# TYPE exposer_transferred_bytes_total counter
-exposer_transferred_bytes_total 0.000000
-# HELP exposer_scrapes_total Number of times metrics were scraped
-# TYPE exposer_scrapes_total counter
-exposer_scrapes_total 0.000000
-# HELP exposer_request_latencies Latencies of serving scrape requests, in microseconds
-# TYPE exposer_request_latencies summary
-exposer_request_latencies_count 0
-exposer_request_latencies_sum 0.000000
-exposer_request_latencies{quantile="0.500000"} Nan
-exposer_request_latencies{quantile="0.900000"} Nan
-exposer_request_latencies{quantile="0.990000"} Nan
-# HELP drachtio_sip_requests_total count of sip requests
-# TYPE drachtio_sip_requests_total counter
-# HELP drachtio_sip_responses_total count of sip responses
-# TYPE drachtio_sip_responses_total counter
+# HELP drachtio_sip_requests_in_total count of sip requests received
+# TYPE drachtio_sip_requests_in_total counter
+# HELP drachtio_sip_requests_out_total count of sip requests sent
+# TYPE drachtio_sip_requests_out_total counter
+# HELP drachtio_sip_responses_in_total count of sip responses received
+# TYPE drachtio_sip_responses_in_total counter
+# HELP drachtio_sip_responses_out_total count of sip responses sent
+# TYPE drachtio_sip_responses_out_total counter
 # HELP drachtio_build_info drachtio version running
 # TYPE drachtio_build_info counter
 drachtio_build_info{version="v0.8.0-rc7-20-gaf3ddfac7"} 1.000000
@@ -68,5 +59,4 @@ drachtio_time_started 1555075955.000000
 # TYPE drachtio_call_answer_seconds histogram
 # HELP drachtio_call_pdd_seconds call post-dial delay seconds
 # TYPE drachtio_call_pdd_seconds histogram
-MacBook-Pro-4:build dhorton$
 ```

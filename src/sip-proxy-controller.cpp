@@ -271,8 +271,7 @@ namespace drachtio {
         // stats
         if (theOneAndOnlyController->getStatsCollector().enabled()) {
             if (m_sipStatus >= 200) {
-                STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
-                    {"direction", "outbound"},
+                STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_OUT, {
                     {"method", sip->sip_cseq->cs_method_name},
                     {"code", boost::lexical_cast<std::string>(sip->sip_status->st_status)}
                 })
@@ -521,7 +520,7 @@ namespace drachtio {
             return false ;
         }
 
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", "PRACK"}})
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_OUT, {{"method", "PRACK"}})
 
         return true ;
     }
@@ -621,7 +620,7 @@ namespace drachtio {
             return true ;
         }
 
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name}})
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_OUT, {{"method", sip->sip_request->rq_method_name}})
 
         if( 1 == m_transmitCount && this->isInviteTransaction() ) {
             Cdr::postCdr( std::make_shared<CdrAttempt>( msg, "application" ) );
@@ -878,7 +877,7 @@ namespace drachtio {
  
             goto err ;
 
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", "CANCEL"}})
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_OUT, {{"method", "CANCEL"}})
 
         m_canceled = true ;
         return 0;
@@ -1309,8 +1308,7 @@ namespace drachtio {
         string callId = sip->sip_call_id->i_id ;
         DR_LOG(log_debug) << "SipProxyController::processResponse " << std::dec << sip->sip_status->st_status << " " << callId ;
 
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
-            {"direction", "inbound"},
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_IN, {
             {"method", sip->sip_cseq->cs_method_name},
             {"code", boost::lexical_cast<std::string>(sip->sip_status->st_status)}
         }) 
@@ -1318,8 +1316,7 @@ namespace drachtio {
         // responses to PRACKs we forward downstream
         if( sip_method_prack == sip->sip_cseq->cs_method ) {
             DR_LOG(log_debug)<< "processResponse - forwarding response to PRACK downstream " << callId ;
-            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
-                {"direction", "outbound"},
+            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_OUT, {
                 {"method", sip->sip_cseq->cs_method_name},
                 {"code", boost::lexical_cast<std::string>(sip->sip_status->st_status)}
             }) 
@@ -1333,8 +1330,7 @@ namespace drachtio {
         //search for a matching client transaction to handle the response
         if( !p->processResponse( msg, sip ) ) {
             DR_LOG(log_debug)<< "processResponse - forwarding upstream (not handled by client transactions)" << callId ;
-            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
-                {"direction", "outbound"},
+            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_OUT, {
                 {"method", sip->sip_cseq->cs_method_name},
                 {"code", boost::lexical_cast<std::string>(sip->sip_status->st_status)}
             }) 
@@ -1350,7 +1346,7 @@ namespace drachtio {
 
         DR_LOG(log_debug) << "SipProxyController::processRequestWithRouteHeader " << callId ;
 
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_IN, {{"method", sip->sip_request->rq_method_name}})
 
         sip_route_remove( msg, sip) ;
 
@@ -1412,7 +1408,7 @@ namespace drachtio {
             DR_LOG(log_error) << "SipProxyController::processRequestWithRouteHeader failed proxying request " << callId << ": error " << rc ; 
             return false ;
         }
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "outbound"},{"method", sip->sip_request->rq_method_name}})
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_OUT, {{"method", sip->sip_request->rq_method_name}})
 
         if( sip_method_bye == sip->sip_request->rq_method ) {
             Cdr::postCdr( std::make_shared<CdrStop>( msg, "application", Cdr::normal_release ) );            
@@ -1425,7 +1421,7 @@ namespace drachtio {
     bool SipProxyController::processRequestWithoutRouteHeader( msg_t* msg, sip_t* sip ) {
         string callId = sip->sip_call_id->i_id ;
 
-        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS, {{"direction", "inbound"},{"method", sip->sip_request->rq_method_name}})
+        STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_REQUESTS_IN, {{"method", sip->sip_request->rq_method_name}})
 
         std::shared_ptr<ProxyCore> p = getProxy( sip ) ;
         if( !p ) {
@@ -1455,8 +1451,7 @@ namespace drachtio {
         if(  sip_method_cancel == sip->sip_request->rq_method ) {
             p->setCanceled(true) ;
 
-            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES, {
-                {"direction", "outbound"},
+            STATS_COUNTER_INCREMENT(STATS_COUNTER_SIP_RESPONSES_OUT, {
                 {"method", sip->sip_request->rq_method_name},
                 {"code", "200"}
             }) 

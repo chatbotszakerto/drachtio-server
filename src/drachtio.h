@@ -62,8 +62,10 @@ const string DR_CRLF2 = "\r\n\r\n" ;
 
 // metrics
 const string STATS_COUNTER_BUILD_INFO = "drachtio_build_info";
-const string STATS_COUNTER_SIP_REQUESTS = "drachtio_sip_requests_total";
-const string STATS_COUNTER_SIP_RESPONSES = "drachtio_sip_responses_total";
+const string STATS_COUNTER_SIP_REQUESTS_IN = "drachtio_sip_requests_in_total";
+const string STATS_COUNTER_SIP_REQUESTS_OUT = "drachtio_sip_requests_out_total";
+const string STATS_COUNTER_SIP_RESPONSES_IN = "drachtio_sip_responses_in_total";
+const string STATS_COUNTER_SIP_RESPONSES_OUT = "drachtio_sip_responses_out_total";
 
 const string STATS_GAUGE_START_TIME = "drachtio_time_started";
 const string STATS_GAUGE_STABLE_DIALOGS = "drachtio_stable_dialogs";
