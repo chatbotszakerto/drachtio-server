@@ -89,8 +89,10 @@ const string STATS_GAUGE_SOFIA_BAD_REQS = "sofia_bad_reqs_recv_total";
 const string STATS_GAUGE_SOFIA_RETRANS_REQ = "sofia_retransmitted_requests_total";
 const string STATS_GAUGE_SOFIA_RETRANS_RES = "sofia_retransmitted_responses_total";
 
-const string STATS_HISTOGRAM_INVITE_RESPONSE_TIME = "drachtio_call_answer_seconds";
-const string STATS_HISTOGRAM_INVITE_PDD = "drachtio_call_pdd_seconds";
+const string STATS_HISTOGRAM_INVITE_RESPONSE_TIME_IN = "drachtio_call_answer_seconds_in";
+const string STATS_HISTOGRAM_INVITE_RESPONSE_TIME_OUT = "drachtio_call_answer_seconds_out";
+const string STATS_HISTOGRAM_INVITE_PDD_IN = "drachtio_call_pdd_seconds_in";
+const string STATS_HISTOGRAM_INVITE_PDD_OUT = "drachtio_call_pdd_seconds_out";
 
 #define TIMER_C_MSECS (185000)
 #define TIMER_B_MSECS (NTA_SIP_T1 * 64)
