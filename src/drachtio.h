@@ -62,7 +62,7 @@ const string DR_CRLF2 = "\r\n\r\n" ;
 #define TIMER_C_MSECS (185000)
 #define TIMER_B_MSECS (NTA_SIP_T1 * 64)
 #define TIMER_D_MSECS (32500)
-#define TIMER_H_MSECS (NTA_SIP_T1 * 64)
+#define TIMER_H_MSECS (30 * 60 * 1000)
 
 #define MSG_ID_LEN (128)
 #define URI_LEN (256)
