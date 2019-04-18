@@ -1,5 +1,9 @@
 FROM debian:stretch-slim
 
+ARG gh_user=chatbotszakerto
+ARG gh_repo=drachtio-server
+ARG gh_slug=develop
+
 RUN apt-get update \
   && apt-get -y --quiet --force-yes upgrade \
   && apt-get install -y --no-install-recommends ca-certificates gcc g++ make build-essential cmake git autoconf automake  curl libtool libtool-bin libssl-dev libcurl4-openssl-dev zlib1g-dev \
