@@ -29,7 +29,8 @@ RUN apt-get update \
   && cd /usr/local/bin \
   && rm -f timer ssltest parser uri_test test_https test_asio_curl
 
-COPY ./entrypoint.sh /
+ADD https://raw.githubusercontent.com/$gh_user/$gh_repo/$gh_slug/entrypoint.sh /
+RUN chmod +x /entrypoint.sh
 
 VOLUME ["/config"]
 
